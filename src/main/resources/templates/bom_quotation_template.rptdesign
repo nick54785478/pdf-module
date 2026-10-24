@@ -1,0 +1,688 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report xmlns="http://www.eclipse.org/birt/2005/design" version="3.2.23" id="1">
+    <property name="createdBy">Eclipse BIRT Designer Version 4.20.0</property>
+    <property name="units">mm</property>
+    <property name="iconFile">/templates/blank_report.gif</property>
+    <property name="bidiLayoutOrientation">ltr</property>
+    <property name="imageDPI">96</property>
+
+    <!-- 全域樣式庫 (相容微軟正黑體與企業專用配色) -->
+    <styles>
+        <style name="report" id="2">
+            <property name="fontFamily">"Microsoft JhengHei", "微軟正黑體", Arial, sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="color">#1E293B</property>
+        </style>
+        <style name="company-title" id="3">
+            <property name="fontFamily">"Microsoft JhengHei", "微軟正黑體", Arial, sans-serif</property>
+            <property name="fontSize">16pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#1A365D</property>
+        </style>
+        <style name="company-subtitle" id="4">
+            <property name="fontFamily">Arial, "Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#64748B</property>
+        </style>
+        <style name="company-details" id="5">
+            <property name="fontFamily">"Microsoft JhengHei", Arial, sans-serif</property>
+            <property name="fontSize">7.5pt</property>
+            <property name="color">#64748B</property>
+        </style>
+        <style name="quote-title" id="6">
+            <property name="fontFamily">"Microsoft JhengHei", "微軟正黑體", sans-serif</property>
+            <property name="fontSize">20pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#3182CE</property>
+            <property name="textAlign">right</property>
+        </style>
+        <style name="quote-subtitle" id="7">
+            <property name="fontFamily">Arial, sans-serif</property>
+            <property name="fontSize">9pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#94A3B8</property>
+            <property name="textAlign">right</property>
+        </style>
+        <style name="quote-meta" id="8">
+            <property name="fontFamily">"Microsoft JhengHei", Arial, sans-serif</property>
+            <property name="fontSize">8.5pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#1E293B</property>
+            <property name="textAlign">right</property>
+        </style>
+        <style name="grid-label" id="9">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#2D3748</property>
+            <property name="backgroundColor">#EDF2F7</property>
+            <property name="paddingTop">3pt</property>
+            <property name="paddingBottom">3pt</property>
+            <property name="paddingLeft">4pt</property>
+            <property name="paddingRight">4pt</property>
+        </style>
+        <style name="grid-value" id="10">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="color">#1E293B</property>
+            <property name="backgroundColor">#FFFFFF</property>
+            <property name="paddingTop">3pt</property>
+            <property name="paddingBottom">3pt</property>
+            <property name="paddingLeft">5pt</property>
+            <property name="paddingRight">5pt</property>
+        </style>
+        <style name="table-header" id="11">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">8.5pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#FFFFFF</property>
+            <property name="backgroundColor">#1A365D</property>
+            <property name="paddingTop">5pt</property>
+            <property name="paddingBottom">5pt</property>
+            <property name="paddingLeft">3pt</property>
+            <property name="paddingRight">3pt</property>
+            <property name="textAlign">center</property>
+        </style>
+        <style name="table-cell" id="12">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="color">#1E293B</property>
+            <property name="paddingTop">4pt</property>
+            <property name="paddingBottom">4pt</property>
+            <property name="paddingLeft">4pt</property>
+            <property name="paddingRight">4pt</property>
+            <property name="borderBottomColor">#CBD5E1</property>
+            <property name="borderBottomStyle">solid</property>
+            <property name="borderBottomWidth">0.5pt</property>
+        </style>
+        <style name="terms-box" id="13">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">7.5pt</property>
+            <property name="color">#64748B</property>
+            <property name="backgroundColor">#F8FAFC</property>
+            <property name="borderLeftColor">#CBD5E1</property>
+            <property name="borderLeftStyle">solid</property>
+            <property name="borderLeftWidth">0.75pt</property>
+            <property name="borderRightColor">#CBD5E1</property>
+            <property name="borderRightStyle">solid</property>
+            <property name="borderRightWidth">0.75pt</property>
+            <property name="borderTopColor">#CBD5E1</property>
+            <property name="borderTopStyle">solid</property>
+            <property name="borderTopWidth">0.75pt</property>
+            <property name="borderBottomColor">#CBD5E1</property>
+            <property name="borderBottomStyle">solid</property>
+            <property name="borderBottomWidth">0.75pt</property>
+            <property name="paddingTop">6pt</property>
+            <property name="paddingBottom">6pt</property>
+            <property name="paddingLeft">6pt</property>
+            <property name="paddingRight">6pt</property>
+        </style>
+        <style name="calc-label" id="14">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="color">#1E293B</property>
+            <property name="textAlign">right</property>
+            <property name="paddingTop">3pt</property>
+            <property name="paddingBottom">3pt</property>
+            <property name="paddingRight">6pt</property>
+        </style>
+        <style name="calc-value" id="15">
+            <property name="fontFamily">"Microsoft JhengHei", Arial, sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#1E293B</property>
+            <property name="textAlign">right</property>
+            <property name="paddingTop">3pt</property>
+            <property name="paddingBottom">3pt</property>
+            <property name="paddingRight">6pt</property>
+        </style>
+        <style name="total-label" id="16">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">9.5pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#1A365D</property>
+            <property name="backgroundColor">#EDF2F7</property>
+            <property name="textAlign">right</property>
+            <property name="whiteSpace">nowrap</property>
+            <property name="paddingTop">5pt</property>
+            <property name="paddingBottom">5pt</property>
+            <property name="paddingRight">6pt</property>
+            <property name="borderTopColor">#1A365D</property>
+            <property name="borderTopStyle">solid</property>
+            <property name="borderTopWidth">1pt</property>
+        </style>
+        <style name="total-value" id="17">
+            <property name="fontFamily">Arial, "Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">11pt</property>
+            <property name="fontWeight">bold</property>
+            <property name="color">#C53030</property>
+            <property name="backgroundColor">#EDF2F7</property>
+            <property name="textAlign">right</property>
+            <property name="paddingTop">5pt</property>
+            <property name="paddingBottom">5pt</property>
+            <property name="paddingRight">6pt</property>
+            <property name="borderTopColor">#1A365D</property>
+            <property name="borderTopStyle">solid</property>
+            <property name="borderTopWidth">1pt</property>
+        </style>
+        <style name="sign-box" id="18">
+            <property name="fontFamily">"Microsoft JhengHei", sans-serif</property>
+            <property name="fontSize">8pt</property>
+            <property name="color">#1E293B</property>
+            <property name="borderLeftColor">#CBD5E1</property>
+            <property name="borderLeftStyle">solid</property>
+            <property name="borderLeftWidth">0.75pt</property>
+            <property name="borderRightColor">#CBD5E1</property>
+            <property name="borderRightStyle">solid</property>
+            <property name="borderRightWidth">0.75pt</property>
+            <property name="borderTopColor">#CBD5E1</property>
+            <property name="borderTopStyle">solid</property>
+            <property name="borderTopWidth">0.75pt</property>
+            <property name="borderBottomColor">#CBD5E1</property>
+            <property name="borderBottomStyle">solid</property>
+            <property name="borderBottomWidth">0.75pt</property>
+            <property name="paddingTop">6pt</property>
+            <property name="paddingBottom">6pt</property>
+            <property name="paddingLeft">6pt</property>
+            <property name="paddingRight">6pt</property>
+        </style>
+    </styles>
+
+    <!-- 報表輸入參數 (支援傳入自定義資料，未提供時使用範本預設值) -->
+    <parameters>
+        <scalar-parameter name="quotationNo" id="101">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">QT-20261023-001</property>
+        </scalar-parameter>
+        <scalar-parameter name="quotationDate" id="102">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">2026-10-23</property>
+        </scalar-parameter>
+        <scalar-parameter name="customerName" id="103">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">台灣智能科技股份有限公司</property>
+        </scalar-parameter>
+        <scalar-parameter name="customerTaxId" id="104">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">12345678</property>
+        </scalar-parameter>
+        <scalar-parameter name="contactPerson" id="105">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">陳建銘 經理 / (03) 578-1234 #567</property>
+        </scalar-parameter>
+        <scalar-parameter name="validityPeriod" id="106">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">30 天 (至 2026-11-22)</property>
+        </scalar-parameter>
+        <scalar-parameter name="paymentTerm" id="107">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">月結 30 天 (Net 30)</property>
+        </scalar-parameter>
+        <scalar-parameter name="deliveryPlace" id="108">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">新竹市科學園區研發六路 12 號 (DDP)</property>
+        </scalar-parameter>
+        <scalar-parameter name="subtotalAmount" id="109">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">NT$ 212,500</property>
+        </scalar-parameter>
+        <scalar-parameter name="taxAmount" id="110">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">NT$ 10,625</property>
+        </scalar-parameter>
+        <scalar-parameter name="totalAmount" id="111">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">NT$ 223,125</property>
+        </scalar-parameter>
+        <scalar-parameter name="terms" id="112">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="defaultValue">1. 本報價單所列物料均符合 RoHS 2.0 及 REACH 環保規範要求。&#10;2. 提供出貨後 12 個月原廠保固服務（人為操作不當或不可抗力因素除外）。&#10;3. 貴公司如確認訂購，請於下方「客戶確認簽回」欄位用印簽署後回傳。</property>
+        </scalar-parameter>
+    </parameters>
+
+    <!-- 資料來源與資料集 (Scripted Data Set：自 Java dataContext / items 抽取清單) -->
+    <data-sources>
+        <script-data-source name="ScriptedDataSource" id="200"/>
+    </data-sources>
+    <data-sets>
+        <script-data-set name="BomItemsDataSet" id="201">
+            <list-property name="resultSetHints">
+                <structure>
+                    <property name="position">1</property>
+                    <property name="name">itemNo</property>
+                    <property name="dataType">integer</property>
+                </structure>
+                <structure>
+                    <property name="position">2</property>
+                    <property name="name">materialNo</property>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="position">3</property>
+                    <property name="name">description</property>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="position">4</property>
+                    <property name="name">quantity</property>
+                    <property name="dataType">integer</property>
+                </structure>
+                <structure>
+                    <property name="position">5</property>
+                    <property name="name">unit</property>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="position">6</property>
+                    <property name="name">unitPrice</property>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="position">7</property>
+                    <property name="name">subtotal</property>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="position">8</property>
+                    <property name="name">remark</property>
+                    <property name="dataType">string</property>
+                </structure>
+            </list-property>
+            <property name="dataSource">ScriptedDataSource</property>
+            <method name="open"><![CDATA[
+itemList = reportContext.getAppContext().get("items");
+if (itemList == null) {
+    itemList = reportContext.getParameterValue("items");
+}
+itemIndex = 0;
+            ]]></method>
+            <method name="fetch"><![CDATA[
+if (itemList != null && itemIndex < itemList.size()) {
+    var item = itemList.get(itemIndex);
+    function getVal(k) {
+        if (item == null) return null;
+        if (item.get) {
+            var v = item.get(k);
+            if (v != null) return v;
+        }
+        if (item[k] != null) return item[k];
+        return "";
+    }
+    row["itemNo"] = getVal("itemNo") != null ? getVal("itemNo") : (itemIndex + 1);
+    row["materialNo"] = getVal("materialNo") != null ? ("" + getVal("materialNo")) : "";
+    row["description"] = getVal("description") != null ? ("" + getVal("description")) : "";
+    var q = getVal("quantity");
+    row["quantity"] = q != null ? java.lang.Integer.valueOf("" + q) : 0;
+    row["unit"] = getVal("unit") != null ? ("" + getVal("unit")) : "";
+    var up = getVal("unitPrice");
+    row["unitPrice"] = up != null && ("" + up).length > 0 ? ("NT$ " + up) : "";
+    var sub = getVal("subtotal");
+    row["subtotal"] = sub != null && ("" + sub).length > 0 ? ("NT$ " + sub) : "";
+    row["remark"] = getVal("remark") != null ? ("" + getVal("remark")) : "";
+    itemIndex++;
+    return true;
+}
+return false;
+            ]]></method>
+        </script-data-set>
+    </data-sets>
+
+    <!-- 頁面母版設定 (A4 直向，精確邊界 10mm) -->
+    <page-setup>
+        <simple-master-page name="Simple MasterPage" id="300">
+            <property name="type">a4</property>
+            <property name="orientation">portrait</property>
+            <property name="topMargin">10mm</property>
+            <property name="bottomMargin">10mm</property>
+            <property name="leftMargin">10mm</property>
+            <property name="rightMargin">10mm</property>
+
+            <page-footer>
+                <grid name="FooterGrid" id="301">
+                    <property name="width">100%</property>
+                    <column id="302">
+                        <property name="width">100%</property>
+                    </column>
+                    <row id="303">
+                        <cell id="304">
+                            <property name="textAlign">center</property>
+                            <auto-text id="305">
+                                <property name="type">page-number</property>
+                                <property name="display">inline</property>
+                                <property name="fontSize">7.5pt</property>
+                                <property name="color">#64748B</property>
+                            </auto-text>
+                            <text id="306">
+                                <property name="contentType">plain</property>
+                                <property name="display">inline</property>
+                                <text-property name="content"> / </text-property>
+                                <property name="fontSize">7.5pt</property>
+                                <property name="color">#64748B</property>
+                            </text>
+                            <auto-text id="307">
+                                <property name="type">total-page</property>
+                                <property name="display">inline</property>
+                                <property name="fontSize">7.5pt</property>
+                                <property name="color">#64748B</property>
+                            </auto-text>
+                        </cell>
+                    </row>
+                </grid>
+            </page-footer>
+        </simple-master-page>
+    </page-setup>
+
+    <!-- 報表主體內容 (Body) -->
+    <body>
+
+        <!-- 1. 公司標頭與單號區塊 (Header Grid) -->
+        <grid name="HeaderTable" id="400">
+            <property name="width">100%</property>
+            <column id="401"><property name="width">65%</property></column>
+            <column id="402"><property name="width">35%</property></column>
+            <row id="403">
+                <cell id="404">
+                    <label id="405">
+                        <property name="style">company-title</property>
+                        <text-property name="text">晨星智造整合科技股份有限公司</text-property>
+                    </label>
+                    <label id="406">
+                        <property name="style">company-subtitle</property>
+                        <text-property name="text">MorningStar Smart Manufacturing Integration Co., Ltd.</text-property>
+                    </label>
+                    <label id="407">
+                        <property name="style">company-details</property>
+                        <text-property name="text">統一編號：88996633  |  電話：(02) 2788-9900  |  傳真：(02) 2788-9901</text-property>
+                    </label>
+                    <label id="408">
+                        <property name="style">company-details</property>
+                        <text-property name="text">地址：115 台北市南港區軟體園區二路 88 號 12 樓</text-property>
+                    </label>
+                </cell>
+                <cell id="409">
+                    <label id="410">
+                        <property name="style">quote-title</property>
+                        <text-property name="text">報 價 單</text-property>
+                    </label>
+                    <label id="411">
+                        <property name="style">quote-subtitle</property>
+                        <text-property name="text">QUOTATION</text-property>
+                    </label>
+                    <text id="412">
+                        <property name="style">quote-meta</property>
+                        <property name="contentType">html</property>
+                        <text-property name="content"><![CDATA[<VALUE-OF>"單號：" + params["quotationNo"].value</VALUE-OF>]]></text-property>
+                    </text>
+                    <text id="413">
+                        <property name="style">quote-meta</property>
+                        <property name="contentType">html</property>
+                        <text-property name="content"><![CDATA[<VALUE-OF>"日期：" + params["quotationDate"].value</VALUE-OF>]]></text-property>
+                    </text>
+                </cell>
+            </row>
+        </grid>
+
+        <!-- 水平裝飾分隔線 (Accent Blue Divider Line) -->
+        <grid name="Separator" id="420">
+            <property name="width">100%</property>
+            <property name="height">2pt</property>
+            <property name="backgroundColor">#3182CE</property>
+            <property name="marginTop">4pt</property>
+            <property name="marginBottom">8pt</property>
+            <column id="421"><property name="width">100%</property></column>
+            <row id="422"><cell id="423"/></row>
+        </grid>
+
+        <!-- 2. 客戶與交易條件網格 (Customer Info Grid: 4 欄 Key-Value) -->
+        <grid name="CustomerGrid" id="500">
+            <property name="width">100%</property>
+            <property name="borderLeftColor">#CBD5E1</property>
+            <property name="borderLeftStyle">solid</property>
+            <property name="borderLeftWidth">0.75pt</property>
+            <property name="borderRightColor">#CBD5E1</property>
+            <property name="borderRightStyle">solid</property>
+            <property name="borderRightWidth">0.75pt</property>
+            <property name="borderTopColor">#CBD5E1</property>
+            <property name="borderTopStyle">solid</property>
+            <property name="borderTopWidth">0.75pt</property>
+            <property name="borderBottomColor">#CBD5E1</property>
+            <property name="borderBottomStyle">solid</property>
+            <property name="borderBottomWidth">0.75pt</property>
+            <property name="marginBottom">8pt</property>
+            <column id="501"><property name="width">15%</property></column>
+            <column id="502"><property name="width">35%</property></column>
+            <column id="503"><property name="width">15%</property></column>
+            <column id="504"><property name="width">35%</property></column>
+
+            <!-- Row 1: 客戶名稱 / 有效期限 -->
+            <row id="510">
+                <cell id="511"><property name="style">grid-label</property><label id="512"><text-property name="text">客戶名稱：</text-property></label></cell>
+                <cell id="513"><property name="style">grid-value</property><text id="514"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["customerName"].value</VALUE-OF>]]></text-property></text></cell>
+                <cell id="515"><property name="style">grid-label</property><label id="516"><text-property name="text">有效期限：</text-property></label></cell>
+                <cell id="517"><property name="style">grid-value</property><text id="518"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["validityPeriod"].value</VALUE-OF>]]></text-property></text></cell>
+            </row>
+
+            <!-- Row 2: 統一編號 / 付款條件 -->
+            <row id="520">
+                <cell id="521"><property name="style">grid-label</property><label id="522"><text-property name="text">統一編號：</text-property></label></cell>
+                <cell id="523"><property name="style">grid-value</property><text id="524"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["customerTaxId"].value</VALUE-OF>]]></text-property></text></cell>
+                <cell id="525"><property name="style">grid-label</property><label id="526"><text-property name="text">付款條件：</text-property></label></cell>
+                <cell id="527"><property name="style">grid-value</property><text id="528"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["paymentTerm"].value</VALUE-OF>]]></text-property></text></cell>
+            </row>
+
+            <!-- Row 3: 聯絡人員 / 交貨地點 -->
+            <row id="530">
+                <cell id="531"><property name="style">grid-label</property><label id="532"><text-property name="text">聯絡人員：</text-property></label></cell>
+                <cell id="533"><property name="style">grid-value</property><text id="534"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["contactPerson"].value</VALUE-OF>]]></text-property></text></cell>
+                <cell id="535"><property name="style">grid-label</property><label id="536"><text-property name="text">交貨地點：</text-property></label></cell>
+                <cell id="537"><property name="style">grid-value</property><text id="538"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["deliveryPlace"].value</VALUE-OF>]]></text-property></text></cell>
+            </row>
+        </grid>
+
+        <!-- 3. 物料明細表格 (BOM Detail Table: 8 欄，支援跨頁自動重複表頭) -->
+        <table name="BomTable" id="600">
+            <property name="width">100%</property>
+            <property name="dataSet">BomItemsDataSet</property>
+            <property name="marginBottom">8pt</property>
+            <list-property name="boundDataColumns">
+                <structure>
+                    <property name="name">itemNo</property>
+                    <expression name="expression" type="javascript">dataSetRow["itemNo"]</expression>
+                    <property name="dataType">integer</property>
+                </structure>
+                <structure>
+                    <property name="name">materialNo</property>
+                    <expression name="expression" type="javascript">dataSetRow["materialNo"]</expression>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="name">description</property>
+                    <expression name="expression" type="javascript">dataSetRow["description"]</expression>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="name">quantity</property>
+                    <expression name="expression" type="javascript">dataSetRow["quantity"]</expression>
+                    <property name="dataType">integer</property>
+                </structure>
+                <structure>
+                    <property name="name">unit</property>
+                    <expression name="expression" type="javascript">dataSetRow["unit"]</expression>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="name">unitPrice</property>
+                    <expression name="expression" type="javascript">dataSetRow["unitPrice"]</expression>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="name">subtotal</property>
+                    <expression name="expression" type="javascript">dataSetRow["subtotal"]</expression>
+                    <property name="dataType">string</property>
+                </structure>
+                <structure>
+                    <property name="name">remark</property>
+                    <expression name="expression" type="javascript">dataSetRow["remark"]</expression>
+                    <property name="dataType">string</property>
+                </structure>
+            </list-property>
+            <column id="601"><property name="width">6%</property></column>
+            <column id="602"><property name="width">18%</property></column>
+            <column id="603"><property name="width">34%</property></column>
+            <column id="604"><property name="width">7%</property></column>
+            <column id="605"><property name="width">6%</property></column>
+            <column id="606"><property name="width">10%</property></column>
+            <column id="607"><property name="width">12%</property></column>
+            <column id="608"><property name="width">7%</property></column>
+
+            <!-- 表頭 (Header) -->
+            <header>
+                <row id="610">
+                    <cell id="611"><property name="style">table-header</property><label id="612"><text-property name="text">項次</text-property></label></cell>
+                    <cell id="613"><property name="style">table-header</property><label id="614"><text-property name="text">物料料號</text-property></label></cell>
+                    <cell id="615"><property name="style">table-header</property><label id="616"><text-property name="text">品名與規格描述</text-property></label></cell>
+                    <cell id="617"><property name="style">table-header</property><label id="618"><text-property name="text">數量</text-property></label></cell>
+                    <cell id="619"><property name="style">table-header</property><label id="620"><text-property name="text">單位</text-property></label></cell>
+                    <cell id="621"><property name="style">table-header</property><label id="622"><text-property name="text">單價(TWD)</text-property></label></cell>
+                    <cell id="623"><property name="style">table-header</property><label id="624"><text-property name="text">小計(TWD)</text-property></label></cell>
+                    <cell id="625"><property name="style">table-header</property><label id="626"><text-property name="text">備註</text-property></label></cell>
+                </row>
+            </header>
+
+            <!-- 表身明細 (Detail) -->
+            <detail>
+                <row id="630">
+                    <property name="style">table-cell</property>
+                    <cell id="631"><property name="textAlign">center</property><data id="632"><property name="resultSetColumn">itemNo</property></data></cell>
+                    <cell id="633"><property name="textAlign">left</property><data id="634"><property name="resultSetColumn">materialNo</property></data></cell>
+                    <cell id="635"><property name="textAlign">left</property><data id="636"><property name="resultSetColumn">description</property></data></cell>
+                    <cell id="637"><property name="textAlign">right</property><data id="638"><property name="resultSetColumn">quantity</property></data></cell>
+                    <cell id="639"><property name="textAlign">center</property><data id="640"><property name="resultSetColumn">unit</property></data></cell>
+                    <cell id="641"><property name="textAlign">right</property><data id="642"><property name="resultSetColumn">unitPrice</property></data></cell>
+                    <cell id="643"><property name="textAlign">right</property><data id="644"><property name="resultSetColumn">subtotal</property></data></cell>
+                    <cell id="645"><property name="textAlign">left</property><data id="646"><property name="resultSetColumn">remark</property></data></cell>
+                </row>
+            </detail>
+        </table>
+
+        <!-- 4. 備註條款與金額小計區塊 (Summary Grid) -->
+        <grid name="SummaryGrid" id="700">
+            <property name="width">100%</property>
+            <property name="marginBottom">8pt</property>
+            <column id="701"><property name="width">50%</property></column>
+            <column id="702"><property name="width">50%</property></column>
+            <row id="703">
+                <!-- 左側：條款說明框 -->
+                <cell id="704">
+                    <property name="style">terms-box</property>
+                    <label id="705">
+                        <property name="fontWeight">bold</property>
+                        <property name="color">#1A365D</property>
+                        <property name="marginBottom">3pt</property>
+                        <text-property name="text">【報價與交易條款說明】</text-property>
+                    </label>
+                    <text id="706">
+                        <property name="contentType">html</property>
+                        <text-property name="content"><![CDATA[<VALUE-OF>params["terms"].value</VALUE-OF>]]></text-property>
+                    </text>
+                </cell>
+
+                <!-- 右側：未稅合計 / 營業稅 / 總計金額計算表 -->
+                <cell id="707">
+                    <grid name="CalcGrid" id="710">
+                        <property name="width">100%</property>
+                        <property name="borderLeftColor">#CBD5E1</property>
+                        <property name="borderLeftStyle">solid</property>
+                        <property name="borderLeftWidth">0.75pt</property>
+                        <property name="borderRightColor">#CBD5E1</property>
+                        <property name="borderRightStyle">solid</property>
+                        <property name="borderRightWidth">0.75pt</property>
+                        <property name="borderTopColor">#CBD5E1</property>
+                        <property name="borderTopStyle">solid</property>
+                        <property name="borderTopWidth">0.75pt</property>
+                        <property name="borderBottomColor">#CBD5E1</property>
+                        <property name="borderBottomStyle">solid</property>
+                        <property name="borderBottomWidth">0.75pt</property>
+                        <column id="711"><property name="width">60%</property></column>
+                        <column id="712"><property name="width">40%</property></column>
+
+                        <!-- 未稅合計 -->
+                        <row id="720">
+                            <cell id="721"><property name="noWrap">true</property><property name="style">calc-label</property><label id="722"><property name="noWrap">true</property><text-property name="text">未稅合計 (Subtotal)：</text-property></label></cell>
+                            <cell id="723"><property name="style">calc-value</property><text id="724"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["subtotalAmount"].value</VALUE-OF>]]></text-property></text></cell>
+                        </row>
+
+                        <!-- 營業稅 5% -->
+                        <row id="730">
+                            <cell id="731"><property name="noWrap">true</property><property name="style">calc-label</property><label id="732"><property name="noWrap">true</property><text-property name="text">營業稅 5% (VAT)：</text-property></label></cell>
+                            <cell id="733"><property name="style">calc-value</property><text id="734"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["taxAmount"].value</VALUE-OF>]]></text-property></text></cell>
+                        </row>
+
+                        <!-- 總計金額 (強調紅字) -->
+                        <row id="740">
+                            <cell id="741"><property name="noWrap">true</property><property name="style">total-label</property><label id="742"><property name="noWrap">true</property><text-property name="text">總計金額 (Grand Total)：</text-property></label></cell>
+                            <cell id="743"><property name="style">total-value</property><text id="744"><property name="contentType">html</property><text-property name="content"><![CDATA[<VALUE-OF>params["totalAmount"].value</VALUE-OF>]]></text-property></text></cell>
+                        </row>
+                    </grid>
+                </cell>
+            </row>
+        </grid>
+
+        <!-- 5. 雙方簽核用印框 (Sign-off Section: 2 欄 50%:50%) -->
+        <grid name="SignTable" id="800">
+            <property name="width">100%</property>
+            <property name="marginTop">6pt</property>
+            <column id="801"><property name="width">50%</property></column>
+            <column id="802"><property name="width">50%</property></column>
+            <row id="803">
+                <!-- 左側：賣方主管簽核 -->
+                <cell id="804">
+                    <property name="style">sign-box</property>
+                    <label id="805">
+                        <property name="fontWeight">bold</property>
+                        <property name="color">#1A365D</property>
+                        <text-property name="text">晨星智造整合科技股份有限公司 (經辦/主管簽核)</text-property>
+                    </label>
+                    <text id="806">
+                        <property name="contentType">plain</property>
+                        <text-property name="content"><![CDATA[
+
+業務經辦：王大衛                    主管簽章：____________
+日期：2026 年 10 月 23 日]]></text-property>
+                    </text>
+                </cell>
+
+                <!-- 右側：買方客戶用印簽回 -->
+                <cell id="807">
+                    <property name="style">sign-box</property>
+                    <label id="808">
+                        <property name="fontWeight">bold</property>
+                        <property name="color">#1A365D</property>
+                        <text-property name="text">客戶確認簽回欄 (請簽署或用印後掃描回傳)</text-property>
+                    </label>
+                    <text id="809">
+                        <property name="contentType">plain</property>
+                        <text-property name="content"><![CDATA[
+
+客戶簽署：_____________________   公司印鑑：[           ]
+簽署日期：2026 年    月    日]]></text-property>
+                    </text>
+                </cell>
+            </row>
+        </grid>
+
+    </body>
+</report>
