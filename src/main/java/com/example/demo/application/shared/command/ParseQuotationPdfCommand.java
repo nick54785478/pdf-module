@@ -1,7 +1,7 @@
 package com.example.demo.application.shared.command;
 
 /**
- * 解析報價單 PDF 命令物件 (CQRS Command Object - Pure Data Carrier)
+ * 解析報價單 PDF 命令物件 (Command Object - Pure Data Carrier)
  * <p>
  * 遵循命名規範 3-4：V (Parse) + N (QuotationPdf) + Command。
  * 作為應用層用例之輸入載體，封裝上傳之二進位 PDF 檔案資料與檔案名稱。

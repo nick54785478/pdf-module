@@ -29,7 +29,7 @@ import java.util.List;
 public class QuotationResourceAssembler {
 
 	/**
-	 * 將取得報價單 PDF 請求載體轉換為應用層 CQRS Query 物件
+	 * 將取得報價單 PDF 請求載體轉換為應用層 Query 物件
 	 *
 	 * @param resource 請求資料載體 (包含 ID)
 	 * @return 應用層 GetQuotationQuery 查詢物件

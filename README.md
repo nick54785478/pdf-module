@@ -1,6 +1,6 @@
 # PDF Module (pdf-module)
 
-本專案為基於 **Spring Boot** 與 **Java 21** 開發的 PDF 模組，採用 **DDD (領域驅動設計)**、**Clean Architecture / 六角形架構 (Ports & Adapters)** 與 **CQRS** 設計原則。
+本專案為基於 **Spring Boot** 與 **Java 21** 開發的 PDF 模組，採用 **DDD (領域驅動設計)** 與 **Clean Architecture / 六角形架構 (Ports & Adapters)** 設計原則。
 
 ---
 
@@ -72,10 +72,10 @@ src/main/java/com/example/demo/
 │   ├── service/                                     # 應用服務 (實作 UseCase 介面，協調流程)
 │   │   └── QuotationApplicationService.java         # 報價單業務應用服務 (Inbound Adapter)
 │   ├── shared/                                      # 跨業務共用資料模型與載體 (Shared Components)
-│   │   ├── command/                                 # CQRS 命令物件 (V + N + Command)
+│   │   ├── command/                                 # 業務命令物件 (V + N + Command)
 │   │   │   ├── ParseQuotationPdfCommand.java        # 上傳並解析報價單 PDF 命令
 │   │   │   └── package-info.java
-│   │   ├── query/                                   # CQRS 查詢物件 (V + N + Query)
+│   │   ├── query/                                   # 業務查詢物件 (V + N + Query)
 │   │   │   ├── GetQuotationQuery.java               # 取得報價單查詢物件 (包含 ID)
 │   │   │   └── package-info.java
 │   │   ├── dto/                                     # 查詢資料傳輸物件 (純資料載體，禁止包含轉換邏輯)
@@ -185,7 +185,7 @@ src/test/java/com/example/demo/
 1. **領域層 (`domain/`)**
    - 純 Java 實作，**嚴格禁止**引入 Spring、JPA、Hibernate、Lombok 等技術依賴，確保核心業務邏輯的技術無關性。
 2. **應用層 (`application/`)**
-   - 負責業務流程編排、CQRS 派送與資料投影。
+   - 負責業務流程編排、Use Case 調度與資料傳遞。
    - **Port 原則**：所有 `port/in/` 與 `port/out/` 介面的傳參及回傳型別，**嚴禁**使用技術類或環境相依物件（如 ORM Entity、HttpServletRequest、ByteArrayResource）。
    - **純資料載體**：`shared/dto/` 與 `view/` 僅為資料傳遞，轉換邏輯由 `assembler/`（如 `*DtoAssembler`）獨立負責。
 3. **基礎設施層 (`infrastructure/`)**
