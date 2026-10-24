@@ -1,6 +1,8 @@
 package com.example.demo.infrastructure.openpdf.template;
 
 import com.example.demo.infrastructure.openpdf.core.OpenPdfWatermarkStyle;
+import com.example.demo.infrastructure.pdfbox.security.policy.PdfSignaturePolicy;
+import com.example.demo.infrastructure.pdfbox.security.customizer.PdfVisualSignatureCustomizer;
 
 import java.io.OutputStream;
 
@@ -9,11 +11,22 @@ import java.io.OutputStream;
  * <p>
  * 定義具體業務單據範本（如物料清單報價單、出貨單、工單憑證等）統一的排版渲染合約，
  * 規範將強型別業務 DTO 資料排版並寫入目標輸出串流的標準行為。
+ * 同時作為 Template Method 設計模式核心，提供範本專屬的浮水印樣式 (Watermark)
+ * 以及個別範本自定義的數位簽章規範 (Signature Policy) 與視覺防偽鋼印 (Visual Customizer) 之擴充鈎子。
  * </p>
  *
  * @param <T> 業務資料物件型別 (DTO)
  */
 public interface PdfDocumentTemplate<T> {
+
+	/**
+	 * 取得此範本的唯一識別名稱 (例如 "bom", "quotation")
+	 *
+	 * @return 範本識別字串，預設為類別簡稱
+	 */
+	default String getTemplateName() {
+		return getClass().getSimpleName();
+	}
 
 	/**
 	 * 執行版面排版並將產出的 PDF 文件寫入指定輸出串流
@@ -37,6 +50,86 @@ public interface PdfDocumentTemplate<T> {
 	 */
 	default OpenPdfWatermarkStyle getWatermarkStyle() {
 		return OpenPdfWatermarkStyle.DEFAULT;
+	}
+
+	/**
+	 * 取得此單據範本專屬定義的數位簽章規範 (Template Method Hook)
+	 * <p>
+	 * 具體單據範本可覆寫此方法，自訂該單據類型專屬的簽章規範 (例如 PAdES 高級規範、嚴格法務存檔規範等)。
+	 * <b>若未覆寫或回傳 null，簽署時自動默認使用系統預設簽章規範</b>。
+	 * </p>
+	 *
+	 * @return 數位簽章規範物件，預設為 null (代表採用預設簽章規範)
+	 */
+	default PdfSignaturePolicy getSignaturePolicy() {
+		return null;
+	}
+
+	/**
+	 * 取得此單據範本專屬定義的視覺印章客製化器 (Template Method Hook)
+	 * <p>
+	 * 具體單據範本可覆寫此方法，自訂該單據類型專屬的防偽視覺鋼印外觀與繪製邏輯。
+	 * <b>若未覆寫或回傳 null，簽署時自動默認使用系統預設視覺印章</b>。
+	 * </p>
+	 *
+	 * @return 視覺印章客製化器，預設為 null (代表採用預設視覺印章)
+	 */
+	default PdfVisualSignatureCustomizer getVisualSignatureCustomizer() {
+		return null;
+	}
+
+	/**
+	 * 取得此單據範本預設的簽章理由說明 (Template Method Hook)
+	 *
+	 * @return 預設簽章事由，若未覆寫則預設為 null
+	 */
+	default String getDefaultSignatureReason() {
+		return null;
+	}
+
+	/**
+	 * 取得此單據範本預設的簽章地點 (Template Method Hook)
+	 *
+	 * @return 預設簽章地點，若未覆寫則預設為 null
+	 */
+	default String getDefaultSignatureLocation() {
+		return null;
+	}
+
+	/**
+	 * 取得此單據範本預設的視覺印章左下角 X 座標點 (Template Method Hook)
+	 *
+	 * @return 預設 X 座標，若未覆寫則預設為 null
+	 */
+	default Float getDefaultSignatureX() {
+		return null;
+	}
+
+	/**
+	 * 取得此單據範本預設的視覺印章左下角 Y 座標點 (Template Method Hook)
+	 *
+	 * @return 預設 Y 座標，若未覆寫則預設為 null
+	 */
+	default Float getDefaultSignatureY() {
+		return null;
+	}
+
+	/**
+	 * 取得此單據範本預設的視覺印章寬度 (Template Method Hook)
+	 *
+	 * @return 預設印章寬度，若未覆寫則預設為 null
+	 */
+	default Float getDefaultSignatureWidth() {
+		return null;
+	}
+
+	/**
+	 * 取得此單據範本預設的視覺印章高度 (Template Method Hook)
+	 *
+	 * @return 預設印章高度，若未覆寫則預設為 null
+	 */
+	default Float getDefaultSignatureHeight() {
+		return null;
 	}
 
 	/**

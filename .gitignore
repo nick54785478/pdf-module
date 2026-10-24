@@ -32,3 +32,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Certificate & Keystore Files (Security Best Practice) ###
+*.p12
+*.pfx
+*.keystore
+*.jks

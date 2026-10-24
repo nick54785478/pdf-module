@@ -1,11 +1,17 @@
 package com.example.demo.presentation.controller;
 
 import com.example.demo.application.port.in.AddWatermarkUseCase;
+import com.example.demo.application.port.in.DecryptPdfUseCase;
+import com.example.demo.application.port.in.EncryptPdfUseCase;
 import com.example.demo.application.port.in.GenerateQuotationPdfUseCase;
 import com.example.demo.application.port.in.GenerateTemplateQuotationPdfUseCase;
 import com.example.demo.application.port.in.ParseQuotationPdfUseCase;
+import com.example.demo.application.port.in.SignPdfUseCase;
 import com.example.demo.application.shared.command.AddWatermarkCommand;
+import com.example.demo.application.shared.command.DecryptPdfCommand;
+import com.example.demo.application.shared.command.EncryptPdfCommand;
 import com.example.demo.application.shared.command.ParseQuotationPdfCommand;
+import com.example.demo.application.shared.command.SignPdfCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.query.GetQuotationQuery;
 import com.example.demo.presentation.assembler.QuotationResourceAssembler;
@@ -47,10 +53,12 @@ import java.nio.charset.StandardCharsets;
  * 提供報價單生成下載與上傳解析對外 HTTP API 介面：
  * 1. 產出與下載：客戶端僅需傳入單號或識別碼 ID，搭配 {@code @Validated} 進行參數檢核，使用 OpenPDF 或 BIRT 範本生成 PDF。
  * 2. 上傳與解析：客戶端上傳產出的 PDF 檔案，調用 {@link ParseQuotationPdfUseCase} 透過 PDFBox 解析結構化資訊並回傳前端。
+ * 3. 浮水印蓋印：調用 {@link AddWatermarkUseCase} 於每一頁疊加半透明防偽字樣。
+ * 4. 安全加解密與簽章：調用 {@link EncryptPdfUseCase}、{@link DecryptPdfUseCase} 與 {@link SignPdfUseCase} 進行密碼權限控管與 PKCS#7 數位簽署。
  * 遵循六角形架構與防腐層規範。
  * </p>
  */
-@Tag(name = "報價單 PDF 生成、加蓋浮水印與解析 API", description = "提供基於 OpenPDF (2.0.4) 與 BIRT 報表範本之報價單 PDF 生成下載、PDF 防偽浮水印蓋印，以及基於 Apache PDFBox (3.0.8) 之 PDF 上傳內容抽取與欄位解析服務")
+@Tag(name = "報價單 PDF 生成、安全防護與數位簽章 API", description = "提供基於 OpenPDF (2.0.4) 與 BIRT 報表範本之報價單 PDF 生成下載、PDF 防偽浮水印蓋印、安全加密解密、PKCS#7 數位簽章，以及基於 Apache PDFBox (3.0.8) 之 PDF 上傳內容抽取與欄位解析服務")
 @Slf4j
 @Validated
 @RestController
@@ -62,12 +70,19 @@ public class QuotationController {
 	public static final String PDF_ENGINE_OPENPDF = "OpenPDF";
 	public static final String PDF_ENGINE_TEMPLATE = "BIRT (Template)";
 	public static final String PDF_ENGINE_WATERMARK = "OpenPDF (Watermark)";
+	public static final String PDF_ENGINE_SECURITY = "OpenPDF (Security)";
+	public static final String PDF_ENGINE_SIGNATURE = "OpenPDF (Digital Signature)";
+	public static final String PDF_ENGINE_PDFBOX_SECURITY = "PDFBox (Security)";
+	public static final String PDF_ENGINE_PDFBOX_SIGNATURE = "PDFBox (Digital Signature)";
 	public static final String HEADER_PDF_ENGINE = "X-Pdf-Engine";
 
 	private final GenerateQuotationPdfUseCase generateQuotationPdfUseCase;
 	private final GenerateTemplateQuotationPdfUseCase generateTemplateQuotationPdfUseCase;
 	private final ParseQuotationPdfUseCase parseQuotationPdfUseCase;
 	private final AddWatermarkUseCase addWatermarkUseCase;
+	private final EncryptPdfUseCase encryptPdfUseCase;
+	private final DecryptPdfUseCase decryptPdfUseCase;
+	private final SignPdfUseCase signPdfUseCase;
 	private final QuotationResourceAssembler quotationResourceAssembler;
 
 	/**
@@ -460,6 +475,262 @@ public class QuotationController {
 
 		log.info("【API】PDF 浮水印蓋印成功: downloadFileName={}, outputSize={}", downloadFileName, watermarkedPdf.length);
 		return buildPdfResponse(watermarkedPdf, downloadFileName, download, PDF_ENGINE_WATERMARK);
+	}
+
+	/**
+	 * 對上傳之 PDF 檔案進行標準安全加密與權限控管
+	 *
+	 * @param file          欲加密之原始 PDF 檔案 (MultipartFile，不可為空)
+	 * @param userPassword  使用者閱讀開啟密碼 (可為空，若未設定則開啟不需密碼，但受限於權限限制)
+	 * @param ownerPassword 擁有者完整權限密碼 (若未設定則自動與使用者密碼對齊或採用安全預設)
+	 * @param allowPrinting 是否允許列印文件 (預設 true)
+	 * @param allowCopy     是否允許複製文件內容 (預設 true)
+	 * @param download      是否以附件方式下載檔案 (預設 true)
+	 * @return 加密後之 PDF 二進位位元組串流
+	 * @throws IOException 檔案讀取異常
+	 */
+	@Operation(
+			summary = "對上傳之 PDF 檔案進行安全加密與權限保護",
+			description = "提供通用 PDF 加密保護服務 (以 Apache PDFBox 為專屬核心引擎)：支援設定使用者開啟密碼、擁有者密碼，"
+					+ "並可個別啟用或禁用文件列印與內容複製權限，回傳加密受保護之 PDF 檔案串流。"
+	)
+	@ApiResponses(value = {
+			@ApiResponse(
+					responseCode = "200",
+					description = "成功完成 PDF 加密並回傳檔案串流",
+					content = @Content(
+							mediaType = MediaType.APPLICATION_PDF_VALUE,
+							schema = @Schema(type = "string", format = "binary", description = "加密後之 PDF 檔案二進位位元組陣列")
+					),
+					headers = {
+							@Header(name = "Content-Disposition", description = "指示瀏覽器下載檔案與檔名", schema = @Schema(type = "string")),
+							@Header(name = "X-Pdf-Engine", description = "底層渲染引擎名稱 (固定為 PDFBox (Security))", schema = @Schema(type = "string"))
+					}
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "上傳檔案為空或參數錯誤",
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorOccurredResource.class))
+			)
+	})
+	@PostMapping(value = "/encrypt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	public ResponseEntity<byte[]> encryptPdf(
+			@Parameter(description = "欲加密之 PDF 檔案", required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
+			@RequestParam("file") MultipartFile file,
+
+			@Parameter(description = "使用者開啟密碼 (可為空或留白)", example = "userSecret")
+			@RequestParam(value = "userPassword", required = false) String userPassword,
+
+			@Parameter(description = "擁有者/管理密碼 (可為空或留白)", example = "ownerSecret")
+			@RequestParam(value = "ownerPassword", required = false) String ownerPassword,
+
+			@Parameter(description = "是否允許列印文件", example = "true")
+			@RequestParam(value = "allowPrinting", required = false, defaultValue = "true") boolean allowPrinting,
+
+			@Parameter(description = "是否允許複製文字內容", example = "true")
+			@RequestParam(value = "allowCopy", required = false, defaultValue = "true") boolean allowCopy,
+
+			@Parameter(description = "是否以附件方式下載檔案", example = "true")
+			@RequestParam(name = "download", required = false, defaultValue = "true") boolean download) throws IOException {
+
+		if (file == null || file.isEmpty()) {
+			log.warn("PDF 加密失敗：上傳之檔案為空");
+			return ResponseEntity.badRequest().build();
+		}
+
+		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";
+		log.info("【API】收到上傳 PDF 加密請求: fileName={}, userPwdSet={}, ownerPwdSet={}",
+				originalFilename, userPassword != null && !userPassword.isEmpty(), ownerPassword != null && !ownerPassword.isEmpty());
+
+		// 1. 防腐層組裝 Command (全面採用 PDFBox 引擎)
+		EncryptPdfCommand command = quotationResourceAssembler.toEncryptCommand(
+				file, userPassword, ownerPassword, allowPrinting, allowCopy
+		);
+
+		// 2. 調用 UseCase 執行加密
+		byte[] encryptedPdf = encryptPdfUseCase.encryptPdf(command);
+
+		String baseName = originalFilename.toLowerCase().endsWith(".pdf")
+				? originalFilename.substring(0, originalFilename.length() - 4)
+				: originalFilename;
+		String downloadFileName = baseName + "_encrypted.pdf";
+
+		log.info("【API】PDF 加密完成: downloadFileName={}, outputSize={}, engine={}", downloadFileName, encryptedPdf.length, PDF_ENGINE_PDFBOX_SECURITY);
+		return buildPdfResponse(encryptedPdf, downloadFileName, download, PDF_ENGINE_PDFBOX_SECURITY);
+	}
+
+	/**
+	 * 對受密碼保護之 PDF 檔案進行解密並解除限制
+	 *
+	 * @param file     欲解密之加密 PDF 檔案 (MultipartFile，不可為空)
+	 * @param password 解密驗證密碼 (可為空，若未設定則嘗試以空密碼開啟)
+	 * @param download 是否以附件方式下載檔案 (預設 true)
+	 * @return 解密後無安全限制之標準 PDF 二進位位元組串流
+	 * @throws IOException 檔案讀取異常
+	 */
+	@Operation(
+			summary = "對受密碼保護之 PDF 檔案進行解密",
+			description = "提供通用 PDF 解密服務 (以 Apache PDFBox 為專屬核心引擎)：接收受保護之 PDF 文件與密碼，驗證成功後解除密碼保護與操作權限限制，"
+					+ "回傳乾淨之標準 PDF 檔案串流。若密碼不符將回傳 400 Bad Request。"
+	)
+	@ApiResponses(value = {
+			@ApiResponse(
+					responseCode = "200",
+					description = "成功完成 PDF 解密並回傳檔案串流",
+					content = @Content(
+							mediaType = MediaType.APPLICATION_PDF_VALUE,
+							schema = @Schema(type = "string", format = "binary", description = "解密後之標準 PDF 檔案二進位位元組陣列")
+					),
+					headers = {
+							@Header(name = "Content-Disposition", description = "指示瀏覽器下載檔案與檔名", schema = @Schema(type = "string")),
+							@Header(name = "X-Pdf-Engine", description = "底層渲染引擎名稱 (固定為 PDFBox (Security))", schema = @Schema(type = "string"))
+					}
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "密碼錯誤、檔案損毀或未上傳檔案",
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorOccurredResource.class))
+			)
+	})
+	@PostMapping(value = "/decrypt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	public ResponseEntity<byte[]> decryptPdf(
+			@Parameter(description = "欲解密之受保護 PDF 檔案", required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
+			@RequestParam("file") MultipartFile file,
+
+			@Parameter(description = "解密密碼 (使用者密碼或擁有者密碼)", example = "userSecret")
+			@RequestParam(value = "password", required = false) String password,
+
+			@Parameter(description = "是否以附件方式下載檔案", example = "true")
+			@RequestParam(name = "download", required = false, defaultValue = "true") boolean download) throws IOException {
+
+		if (file == null || file.isEmpty()) {
+			log.warn("PDF 解密失敗：上傳之檔案為空");
+			return ResponseEntity.badRequest().build();
+		}
+
+		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";
+		log.info("【API】收到上傳 PDF 解密請求: fileName={}, passwordProvided={}",
+				originalFilename, password != null && !password.isEmpty());
+
+		// 1. 防腐層組裝 Command (全面採用 PDFBox 引擎)
+		DecryptPdfCommand command = quotationResourceAssembler.toDecryptCommand(file, password);
+
+		// 2. 調用 UseCase 執行解密
+		byte[] decryptedPdf = decryptPdfUseCase.decryptPdf(command);
+
+		String baseName = originalFilename.toLowerCase().endsWith(".pdf")
+				? originalFilename.substring(0, originalFilename.length() - 4)
+				: originalFilename;
+		String downloadFileName = baseName + "_decrypted.pdf";
+
+		log.info("【API】PDF 解密完成: downloadFileName={}, outputSize={}, engine={}", downloadFileName, decryptedPdf.length, PDF_ENGINE_PDFBOX_SECURITY);
+		return buildPdfResponse(decryptedPdf, downloadFileName, download, PDF_ENGINE_PDFBOX_SECURITY);
+	}
+
+	/**
+	 * 對 PDF 檔案進行標準 PKCS#7 數位簽章與加蓋防偽印章
+	 *
+	 * @param file        欲簽章之原始 PDF 檔案 (MultipartFile，不可為空)
+	 * @param keystore    PKCS#12 (.p12/.pfx) 金鑰庫檔案 (MultipartFile，不可為空)
+	 * @param password    金鑰庫密碼 (不可為空)
+	 * @param alias       私鑰別名 (可選，預設取金鑰庫第一組別名)
+	 * @param reason      簽章理由說明 (例如：核准報價單)
+	 * @param location    簽章地點 (例如：台北市)
+	 * @param contact     簽署人聯絡資訊 (可選)
+	 * @param visual      是否印製可見視覺印章 (預設 true)
+	 * @param page        視覺印章印製頁碼 (預設第 1 頁)
+	 * @param template    指定套用之單據範本名稱 (例如：bom，可選，未傳入時使用系統預設簽章規範)
+	 * @param download    是否以附件方式下載檔案 (預設 true)
+	 * @return 完成數位簽署之 PDF 二進位位元組串流
+	 * @throws IOException 檔案讀取異常
+	 */
+	@Operation(
+			summary = "對 PDF 檔案進行 PKCS#7 數位簽章與防偽印章印製",
+			description = "提供不可否認性之 PDF 數位簽署能力 (以 Apache PDFBox 為專屬核心引擎)：支援上傳標準 PKCS#12 (.p12/.pfx) 金鑰庫憑證，"
+					+ "依據 PKCS#7 / X.509 標準對 PDF 進行加密數位簽名，支援個別單據範本 (PdfDocumentTemplate) 自定義簽章規範 (Policy / Visual Stamp) 或自動採用預設簽章規範。"
+	)
+	@ApiResponses(value = {
+			@ApiResponse(
+					responseCode = "200",
+					description = "成功完成 PDF 數位簽署並回傳檔案串流",
+					content = @Content(
+							mediaType = MediaType.APPLICATION_PDF_VALUE,
+							schema = @Schema(type = "string", format = "binary", description = "完成數位簽名之 PDF 檔案二進位位元組陣列")
+					),
+					headers = {
+							@Header(name = "Content-Disposition", description = "指示瀏覽器下載檔案與檔名", schema = @Schema(type = "string")),
+							@Header(name = "X-Pdf-Engine", description = "底層渲染引擎名稱 (固定為 PDFBox (Digital Signature))", schema = @Schema(type = "string"))
+					}
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "憑證金鑰庫密碼錯誤、格式不合或檔案為空",
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorOccurredResource.class))
+			)
+	})
+	@PostMapping(value = "/sign", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	public ResponseEntity<byte[]> signPdf(
+			@Parameter(description = "欲進行數位簽章之原始 PDF 檔案", required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
+			@RequestParam("file") MultipartFile file,
+
+			@Parameter(description = "PKCS#12 憑證金鑰庫檔案 (.p12 / .pfx)", required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
+			@RequestParam("keystore") MultipartFile keystore,
+
+			@Parameter(description = "金鑰庫解鎖密碼", example = "secret123", required = true)
+			@RequestParam("password") @NotBlank(message = "金鑰庫解鎖密碼不可為空") String password,
+
+			@Parameter(description = "私鑰別名 (Alias，可選)", example = "my-alias")
+			@RequestParam(value = "alias", required = false) String alias,
+
+			@Parameter(description = "簽章理由說明 (若單據範本有特別定義且此處未提供，則優先套用範本理由)", example = "核准正式報價")
+			@RequestParam(value = "reason", required = false) String reason,
+
+			@Parameter(description = "簽章地點 (若單據範本有特別定義且此處未提供，則優先套用範本地點)", example = "台北總部")
+			@RequestParam(value = "location", required = false) String location,
+
+			@Parameter(description = "簽署人聯絡資訊", example = "sign@company.com")
+			@RequestParam(value = "contact", required = false) String contact,
+
+			@Parameter(description = "是否加蓋可見印章方塊", example = "true")
+			@RequestParam(value = "visual", required = false, defaultValue = "true") boolean visual,
+
+			@Parameter(description = "視覺印章所在頁碼 (自 1 起算)", example = "1")
+			@RequestParam(value = "page", required = false, defaultValue = "1") int page,
+
+			@Parameter(description = "指定套用之單據範本名稱 (例如：bom，可選，未指定或範本未定義時自動使用預設簽章規範)", example = "bom")
+			@RequestParam(value = "template", required = false) String template,
+
+			@Parameter(description = "是否以附件方式下載檔案", example = "true")
+			@RequestParam(name = "download", required = false, defaultValue = "true") boolean download) throws IOException {
+
+		if (file == null || file.isEmpty()) {
+			log.warn("PDF 數位簽章失敗：上傳之 PDF 檔案為空");
+			return ResponseEntity.badRequest().build();
+		}
+		if (keystore == null || keystore.isEmpty()) {
+			log.warn("PDF 數位簽章失敗：上傳之金鑰庫檔案為空");
+			return ResponseEntity.badRequest().build();
+		}
+
+		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";
+		log.info("【API】收到上傳 PDF 數位簽章請求: fileName={}, template={}, reason={}, location={}",
+				originalFilename, template, reason, location);
+
+		// 1. 防腐層組裝 Command (全面採用 PDFBox 引擎，支援個別範本簽章規範)
+		SignPdfCommand command = quotationResourceAssembler.toSignCommand(
+				file, keystore, password, alias, reason, location, contact, visual, page, 360f, 50f, 180f, 60f, template
+		);
+
+		// 2. 調用 UseCase 執行簽署
+		byte[] signedPdf = signPdfUseCase.signPdf(command);
+
+		String baseName = originalFilename.toLowerCase().endsWith(".pdf")
+				? originalFilename.substring(0, originalFilename.length() - 4)
+				: originalFilename;
+		String downloadFileName = baseName + "_signed.pdf";
+
+		log.info("【API】PDF 數位簽章完成: downloadFileName={}, outputSize={}, engine={}", downloadFileName, signedPdf.length, PDF_ENGINE_PDFBOX_SIGNATURE);
+		return buildPdfResponse(signedPdf, downloadFileName, download, PDF_ENGINE_PDFBOX_SIGNATURE);
 	}
 
 	/**

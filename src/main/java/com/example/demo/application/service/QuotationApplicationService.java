@@ -2,17 +2,24 @@ package com.example.demo.application.service;
 
 import com.example.demo.application.assembler.QuotationReportAssembler;
 import com.example.demo.application.port.in.AddWatermarkUseCase;
+import com.example.demo.application.port.in.DecryptPdfUseCase;
+import com.example.demo.application.port.in.EncryptPdfUseCase;
 import com.example.demo.application.port.in.GenerateQuotationPdfUseCase;
 import com.example.demo.application.port.in.GenerateTemplateQuotationPdfUseCase;
 import com.example.demo.application.port.in.ParseQuotationPdfUseCase;
+import com.example.demo.application.port.in.SignPdfUseCase;
 import com.example.demo.application.port.out.MockServicePort;
 import com.example.demo.application.port.out.PdfExtractorPort;
+import com.example.demo.application.port.out.PdfSecurityExecutorPort;
 import com.example.demo.application.port.out.PdfWatermarkExecutorPort;
 import com.example.demo.application.port.out.QuotationParserPort;
 import com.example.demo.application.port.out.QuotationPdfGeneratorPort;
 import com.example.demo.application.port.out.ReportGeneratorPort;
 import com.example.demo.application.shared.command.AddWatermarkCommand;
+import com.example.demo.application.shared.command.DecryptPdfCommand;
+import com.example.demo.application.shared.command.EncryptPdfCommand;
 import com.example.demo.application.shared.command.ParseQuotationPdfCommand;
+import com.example.demo.application.shared.command.SignPdfCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.query.GetQuotationQuery;
 import lombok.RequiredArgsConstructor;
@@ -25,17 +32,17 @@ import java.util.Map;
 /**
  * 報價單應用層服務 (Application Service / Inbound Adapter)
  * <p>
- * 實作 {@link GenerateQuotationPdfUseCase}、{@link GenerateTemplateQuotationPdfUseCase}、{@link ParseQuotationPdfUseCase}
- * 與 {@link AddWatermarkUseCase} 入向端口，
- * 協調 {@link MockServicePort}、{@link QuotationPdfGeneratorPort}、{@link ReportGeneratorPort}、
- * {@link PdfExtractorPort}、{@link QuotationParserPort} 與 {@link PdfWatermarkExecutorPort} 進行報價單生成、解析與浮水印蓋印。
+ * 實作 {@link GenerateQuotationPdfUseCase}、{@link GenerateTemplateQuotationPdfUseCase}、{@link ParseQuotationPdfUseCase}、
+ * {@link AddWatermarkUseCase}、{@link EncryptPdfUseCase}、{@link DecryptPdfUseCase} 與 {@link SignPdfUseCase} 入向端口，
+ * 協調基礎設施層各項輸出端口進行報價單生成、解析、浮水印蓋印與安全加解密簽署。
  * 遵循命名規範 3-9：Inbound Adapter 實作以 ApplicationService 結尾。
  * </p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class QuotationApplicationService implements GenerateQuotationPdfUseCase, GenerateTemplateQuotationPdfUseCase, ParseQuotationPdfUseCase, AddWatermarkUseCase {
+public class QuotationApplicationService implements GenerateQuotationPdfUseCase, GenerateTemplateQuotationPdfUseCase,
+		ParseQuotationPdfUseCase, AddWatermarkUseCase, EncryptPdfUseCase, DecryptPdfUseCase, SignPdfUseCase {
 
 	private final MockServicePort mockServicePort;
 	private final QuotationPdfGeneratorPort quotationPdfPort;
@@ -44,6 +51,7 @@ public class QuotationApplicationService implements GenerateQuotationPdfUseCase,
 	private final PdfExtractorPort pdfExtractorPort;
 	private final QuotationParserPort quotationParserPort;
 	private final PdfWatermarkExecutorPort pdfWatermarkPort;
+	private final PdfSecurityExecutorPort pdfSecurityPort;
 
 	/**
 	 * 依據查詢條件 (ID) 取得報價單資料並產出 PDF 檔案
@@ -146,5 +154,59 @@ public class QuotationApplicationService implements GenerateQuotationPdfUseCase,
 			log.error("解析報價單 PDF 發生異常: fileName={}", command.fileName(), e);
 			throw new IllegalStateException("解析報價單 PDF 發生錯誤: " + e.getMessage(), e);
 		}
+	}
+
+	/**
+	 * 依據傳入之加密命令對 PDF 進行加密保護
+	 *
+	 * @param command 加密命令物件 (包含 PDF 位元組陣列、密碼與權限配置，不可為 null)
+	 * @return 加密後受保護之 PDF 二進位 byte 陣列
+	 */
+	@Override
+	public byte[] encryptPdf(EncryptPdfCommand command) {
+		if (command == null || command.fileBytes() == null || command.fileBytes().length == 0) {
+			log.error("PDF 加密失敗：command 或 fileBytes 為空");
+			throw new IllegalArgumentException("待加密之 PDF 檔案內容不可為空");
+		}
+		log.info("應用層收到 PDF 加密請求: byteSize={}, userPwdSet={}, ownerPwdSet={}",
+				command.fileBytes().length,
+				command.userPassword() != null && !command.userPassword().isEmpty(),
+				command.ownerPassword() != null && !command.ownerPassword().isEmpty());
+		return pdfSecurityPort.encryptPdf(command);
+	}
+
+	/**
+	 * 依據傳入之解密命令對 PDF 進行驗證解鎖並移除安全限制
+	 *
+	 * @param command 解密命令物件 (包含受保護之 PDF 位元組陣列與解密密碼，不可為 null)
+	 * @return 解密後無安全限制之標準 PDF 二進位 byte 陣列
+	 */
+	@Override
+	public byte[] decryptPdf(DecryptPdfCommand command) {
+		if (command == null || command.fileBytes() == null || command.fileBytes().length == 0) {
+			log.error("PDF 解密失敗：command 或 fileBytes 為空");
+			throw new IllegalArgumentException("待解密之 PDF 檔案內容不可為空");
+		}
+		log.info("應用層收到 PDF 解密請求: byteSize={}, pwdSet={}",
+				command.fileBytes().length,
+				command.password() != null && !command.password().isEmpty());
+		return pdfSecurityPort.decryptPdf(command);
+	}
+
+	/**
+	 * 依據傳入之簽章命令為 PDF 進行數位簽署
+	 *
+	 * @param command 數位簽章命令物件 (包含 PDF 位元組陣列、PKCS#12 憑證金鑰庫、密碼與印章配置，不可為 null)
+	 * @return 完成數位簽章之 PDF 二進位 byte 陣列
+	 */
+	@Override
+	public byte[] signPdf(SignPdfCommand command) {
+		if (command == null || command.fileBytes() == null || command.fileBytes().length == 0) {
+			log.error("PDF 數位簽章失敗：command 或 fileBytes 為空");
+			throw new IllegalArgumentException("待簽章之 PDF 檔案內容不可為空");
+		}
+		log.info("應用層收到 PDF 數位簽章請求: byteSize={}, reason={}, location={}",
+				command.fileBytes().length, command.reason(), command.location());
+		return pdfSecurityPort.signPdf(command);
 	}
 }

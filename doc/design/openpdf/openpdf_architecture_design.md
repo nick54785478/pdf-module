@@ -358,17 +358,24 @@ src/main/java/com/example/demo/
 │   │   │   ├── GenerateQuotationPdfUseCase.java     # 產出 OpenPDF 報價單用例
 │   │   │   ├── GenerateTemplateQuotationPdfUseCase.java # 產出 BIRT 報表用例
 │   │   │   ├── ParseQuotationPdfUseCase.java        # 解析 PDF 用例
-│   │   │   └── AddWatermarkUseCase.java             # 通用 PDF 加蓋浮水印用例
+│   │   │   ├── AddWatermarkUseCase.java             # 通用 PDF 加蓋浮水印用例
+│   │   │   ├── EncryptPdfUseCase.java               # PDF 安全加密與權限控管用例
+│   │   │   ├── DecryptPdfUseCase.java               # 受保護 PDF 密碼解密用例
+│   │   │   └── SignPdfUseCase.java                  # PDF PKCS#7 數位簽章用例
 │   │   └── out/                                     # Outbound Ports
 │   │       ├── QuotationPdfGeneratorPort.java       # 報價單產出業務端口 (支援生成時單次印製浮水印)
 │   │       ├── ReportGeneratorPort.java             # BIRT 報表產出端口
 │   │       ├── PdfExtractorPort.java                # PDFBox 內容抽取端口
 │   │       ├── QuotationParserPort.java             # 報價單語意剖析端口
-│   │       └── PdfWatermarkExecutorPort.java        # PDF 通用浮水印蓋印外向端口
+│   │       ├── PdfWatermarkExecutorPort.java        # PDF 通用浮水印蓋印外向端口
+│   │       └── PdfSecurityExecutorPort.java         # PDF 安全加密、解密與數位簽章外向端口
 │   ├── shared/
 │   │   ├── command/
 │   │   │   ├── ParseQuotationPdfCommand.java        # 解析命令
-│   │   │   └── AddWatermarkCommand.java             # 加蓋浮水印命令
+│   │   │   ├── AddWatermarkCommand.java             # 加蓋浮水印命令
+│   │   │   ├── EncryptPdfCommand.java               # 加密命令
+│   │   │   ├── DecryptPdfCommand.java               # 解密命令
+│   │   │   └── SignPdfCommand.java                  # 數位簽章命令
 │   │   ├── query/
 │   │   │   └── GetQuotationQuery.java               # 查詢物件 (包含 ID 與浮水印文字)
 │   │   └── dto/
@@ -381,6 +388,7 @@ src/main/java/com/example/demo/
     ├── adapter/
     │   ├── OpenQuotationPdfGeneratorAdapter.java    # 實作 QuotationPdfGeneratorPort (生成時單次印製)
     │   ├── OpenPdfWatermarkExecutorAdapter.java     # 實作 PdfWatermarkExecutorPort (後製通用蓋印)
+    │   ├── OpenPdfSecurityExecutorAdapter.java      # 實作 PdfSecurityExecutorPort (加解密與 PKCS#7 數位簽章)
     │   ├── BirtReportAdapter.java                   # 實作 ReportGeneratorPort
     │   ├── PdfExtractorAdapter.java                 # 實作 PdfExtractorPort
     │   └── TextQuotationParserAdapter.java          # 實作 QuotationParserPort
@@ -400,12 +408,38 @@ src/main/java/com/example/demo/
 
 ---
 
-## 5. 架構演進與優勢效益評估 (Benefits & Evolution)
+## 5. 企業級安全加密與 PKCS#7 數位簽章架構 (Security & Digital Signatures)
+
+依據 Clean Architecture 原則，安全防護能力獨立為 `PdfSecurityExecutorPort` 外向端口與 `OpenPdfSecurityExecutorAdapter` 基礎設施適配器，整合 OpenPDF 與 BouncyCastle 提供不可否認性與權限保護：
+
+### 5.1 標準 128-bit 權限加密 (`encryptPdf`)
+- **雙密碼分離控管**：
+  - **使用者密碼 (User Password)**：開啟閱讀文件時驗證，若未設定則開啟不需密碼，但受限於權限限制。
+  - **擁有者密碼 (Owner Password)**：擁有修改權限與解密許可之最高管理密碼。
+- **細粒度操作授權**：
+  - `allowPrinting`：透過 `PdfWriter.ALLOW_PRINTING` 控管高/低解析度列印。
+  - `allowCopy`：透過 `PdfWriter.ALLOW_COPY` 與 `PdfWriter.ALLOW_SCREENREADERS` 控管文字複製與無障礙閱讀。
+
+### 5.2 密碼驗證解鎖與限制解除 (`decryptPdf`)
+- **安全防腐驗證**：接收加密 PDF 二進位 byte[] 與密碼憑據，透過 `PdfReader` 解鎖。
+- **語意例外轉換**：底層拋出 `BadPasswordException` 時，由適配器捕獲並封裝為語意清晰之 `IllegalArgumentException("PDF 解密失敗：密碼錯誤或未授權存取")`，防止底層框架異常外洩。
+- **無損重構**：解鎖成功後透過 `PdfStamper` 輸出為無加密保護之標準 PDF。
+
+### 5.3 PKCS#7 / X.509 不可否認性數位簽章 (`signPdf`)
+- **標準金鑰庫解析**：支援業界通用之 PKCS#12 (.p12 / .pfx) 金鑰庫，透過 BouncyCastle 解析 RSA/ECC 私鑰與完整 X.509 憑證信任鏈。
+- **數位簽署外觀與詮釋資料**：
+  - 封裝 Reason (簽署理由)、Location (簽署地點)、Contact (聯絡資訊)。
+  - 支援在指定頁碼與座標加蓋具備企業字體之視覺簽名印章 (Visual Signature Stamp)。
+- **PKCS#7 簽名演算法**：以 `PdfSignatureAppearance.SELF_SIGNED` 或 WIF 標準對 PDF 全文字節雜湊簽署，具備抗竄改與不可否認之法律效力。
+
+---
+
+## 6. 架構演進與優勢效益評估 (Benefits & Evolution)
 
 | 評估維度 | 本設計方案效益 |
 | :--- | :--- |
 | **開閉原則 (OCP)** | 新增「採購單 (PO)」或「出貨單」時，只需新增專屬 Template，完全無需修改底層積木與既有範本。 |
-| **單一職責 (SRP)** | 字體與頁碼技術問題由 `core/` 負責；報價單版面邏輯由 `BomQuotationPdfTemplate` 負責。 |
+| **單一職責 (SRP)** | 字體與頁碼技術問題由 `core/` 負責；報價單版面邏輯由 `BomQuotationPdfTemplate` 負責；安全防護由 `OpenPdfSecurityExecutorAdapter` 負責。 |
 | **效能卓越** | 專案字體 `MSJHL.TTC` 透過單例快取，避免每份 PDF 重複解析 12MB 字體二進位資料。 |
 | **高可測試性** | 業務範本可直接在測試中驗證像素排版，Adapter 與 Port 可輕鬆進行 Mock 隔離測試。 |
 | **Clean Architecture 遵循度** | 應用層純粹無依賴，符合 `AGENTS.md` 規範中所有命名、Port 與防腐層要求。 |

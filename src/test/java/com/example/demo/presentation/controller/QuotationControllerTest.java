@@ -1,10 +1,16 @@
 package com.example.demo.presentation.controller;
 
 import com.example.demo.application.port.in.AddWatermarkUseCase;
+import com.example.demo.application.port.in.DecryptPdfUseCase;
+import com.example.demo.application.port.in.EncryptPdfUseCase;
 import com.example.demo.application.port.in.GenerateQuotationPdfUseCase;
 import com.example.demo.application.port.in.GenerateTemplateQuotationPdfUseCase;
 import com.example.demo.application.port.in.ParseQuotationPdfUseCase;
+import com.example.demo.application.port.in.SignPdfUseCase;
+import com.example.demo.application.shared.command.DecryptPdfCommand;
+import com.example.demo.application.shared.command.EncryptPdfCommand;
 import com.example.demo.application.shared.command.ParseQuotationPdfCommand;
+import com.example.demo.application.shared.command.SignPdfCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.dto.QuotationItemGottenResult;
 import com.example.demo.application.shared.query.GetQuotationQuery;
@@ -62,6 +68,15 @@ class QuotationControllerTest {
 	@Mock
 	private AddWatermarkUseCase addWatermarkUseCase;
 
+	@Mock
+	private EncryptPdfUseCase encryptPdfUseCase;
+
+	@Mock
+	private DecryptPdfUseCase decryptPdfUseCase;
+
+	@Mock
+	private SignPdfUseCase signPdfUseCase;
+
 	private final QuotationResourceAssembler quotationResourceAssembler = new QuotationResourceAssembler();
 
 	@BeforeEach
@@ -71,6 +86,9 @@ class QuotationControllerTest {
 				generateTemplateQuotationPdfUseCase,
 				parseQuotationPdfUseCase,
 				addWatermarkUseCase,
+				encryptPdfUseCase,
+				decryptPdfUseCase,
+				signPdfUseCase,
 				quotationResourceAssembler
 		);
 		this.mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -456,6 +474,160 @@ class QuotationControllerTest {
 						.file(emptyFile)
 						.param("watermark", "機密"))
 				.andExpect(status().isBadRequest());
+	}
+
+	/**
+	 * Feature: 上傳 PDF 進行安全加密 API
+	 * Scenario: 正常流程 - 上傳 PDF 並設定密碼，預設使用 PDFBox 安全引擎，成功回傳加密檔案與 PDFBox 標頭
+	 */
+	@Test
+	@DisplayName("POST加密PDF-預設引擎情境-成功回傳加密檔案與PDFBox Security標頭")
+	void encryptPdf_defaultEngine_success() throws Exception {
+		byte[] mockRaw = "%PDF-1.5 Raw".getBytes();
+		byte[] mockEncrypted = "%PDF-1.5 Encrypted".getBytes();
+
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, mockRaw
+		);
+
+		when(encryptPdfUseCase.encryptPdf(any(EncryptPdfCommand.class))).thenReturn(mockEncrypted);
+
+		mockMvc.perform(multipart("/api/v1/quotations/encrypt")
+						.file(file)
+						.param("userPassword", "user123")
+						.param("ownerPassword", "owner123")
+						.param("allowPrinting", "true")
+						.param("allowCopy", "false")
+						.param("download", "true"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_PDF))
+				.andExpect(header().string("X-Pdf-Engine", "PDFBox (Security)"))
+				.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("doc_encrypted.pdf")))
+				.andExpect(content().bytes(mockEncrypted));
+	}
+
+	/**
+	 * Feature: 上傳 PDF 進行安全加密 API
+	 * Scenario: 正常流程 - 上傳 PDF 檔案並提供密碼與權限控管設定，全面採用 PDFBox 安全引擎
+	 */
+	@Test
+	@DisplayName("POST加密PDF-正常情境-成功回傳加密檔案與PDFBox Security標頭")
+	void encryptPdf_pdfboxEngine_success() throws Exception {
+		byte[] mockRaw = "%PDF-1.5 Raw".getBytes();
+		byte[] mockEncrypted = "%PDF-1.5 Encrypted".getBytes();
+
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "doc.pdf", MediaType.APPLICATION_PDF_VALUE, mockRaw
+		);
+
+		when(encryptPdfUseCase.encryptPdf(any(EncryptPdfCommand.class))).thenReturn(mockEncrypted);
+
+		mockMvc.perform(multipart("/api/v1/quotations/encrypt")
+						.file(file)
+						.param("userPassword", "user123")
+						.param("ownerPassword", "owner123")
+						.param("download", "true"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_PDF))
+				.andExpect(header().string("X-Pdf-Engine", "PDFBox (Security)"))
+				.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("doc_encrypted.pdf")))
+				.andExpect(content().bytes(mockEncrypted));
+	}
+
+	/**
+	 * Feature: 上傳加密 PDF 進行解密 API
+	 * Scenario: 正常流程 - 上傳加密 PDF 並提供密碼，預設使用 PDFBox 安全引擎解密
+	 */
+	@Test
+	@DisplayName("POST解密PDF-正常情境-成功回傳解密檔案與PDFBox Security標頭")
+	void decryptPdf_defaultEngine_success() throws Exception {
+		byte[] mockEncrypted = "%PDF-1.5 Encrypted".getBytes();
+		byte[] mockDecrypted = "%PDF-1.5 Decrypted".getBytes();
+
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "protected.pdf", MediaType.APPLICATION_PDF_VALUE, mockEncrypted
+		);
+
+		when(decryptPdfUseCase.decryptPdf(any(DecryptPdfCommand.class))).thenReturn(mockDecrypted);
+
+		mockMvc.perform(multipart("/api/v1/quotations/decrypt")
+						.file(file)
+						.param("password", "secret")
+						.param("download", "true"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_PDF))
+				.andExpect(header().string("X-Pdf-Engine", "PDFBox (Security)"))
+				.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("protected_decrypted.pdf")))
+				.andExpect(content().bytes(mockDecrypted));
+	}
+
+	/**
+	 * Feature: 上傳 PDF 進行 PKCS#7 數位簽章 API
+	 * Scenario: 正常流程 - 上傳 PDF 與 PKCS#12 金鑰庫，未指定 template，自動套用系統預設簽章規範
+	 */
+	@Test
+	@DisplayName("POST數位簽章-預設簽章規範情境-成功回傳簽名檔案與PDFBox Digital Signature標頭")
+	void signPdf_defaultSignature_success() throws Exception {
+		byte[] mockRaw = "%PDF-1.5 Raw".getBytes();
+		byte[] mockSigned = "%PDF-1.5 Signed".getBytes();
+
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "contract.pdf", MediaType.APPLICATION_PDF_VALUE, mockRaw
+		);
+		MockMultipartFile keystore = new MockMultipartFile(
+				"keystore", "cert.p12", "application/x-pkcs12", "mockKeystoreBytes".getBytes()
+		);
+
+		when(signPdfUseCase.signPdf(any(SignPdfCommand.class))).thenReturn(mockSigned);
+
+		mockMvc.perform(multipart("/api/v1/quotations/sign")
+						.file(file)
+						.file(keystore)
+						.param("password", "storePass")
+						.param("reason", "核准簽章")
+						.param("location", "台北總部")
+						.param("visual", "true")
+						.param("page", "1")
+						.param("download", "true"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_PDF))
+				.andExpect(header().string("X-Pdf-Engine", "PDFBox (Digital Signature)"))
+				.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("contract_signed.pdf")))
+				.andExpect(content().bytes(mockSigned));
+	}
+
+	/**
+	 * Feature: 上傳 PDF 進行 PKCS#7 數位簽章 API
+	 * Scenario: 指定單據範本 - 上傳 PDF 與 PKCS#12 金鑰庫，指定 template=bom，套用 BOM 專屬簽章規範
+	 */
+	@Test
+	@DisplayName("POST數位簽章-指定單據範本簽章規範-成功回傳簽名檔案與PDFBox Digital Signature標頭")
+	void signPdf_withBomTemplate_success() throws Exception {
+		byte[] mockRaw = "%PDF-1.5 Raw".getBytes();
+		byte[] mockSigned = "%PDF-1.5 Signed".getBytes();
+
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "contract.pdf", MediaType.APPLICATION_PDF_VALUE, mockRaw
+		);
+		MockMultipartFile keystore = new MockMultipartFile(
+				"keystore", "cert.p12", "application/x-pkcs12", "mockKeystoreBytes".getBytes()
+		);
+
+		when(signPdfUseCase.signPdf(any(SignPdfCommand.class))).thenReturn(mockSigned);
+
+		mockMvc.perform(multipart("/api/v1/quotations/sign")
+						.file(file)
+						.file(keystore)
+						.param("password", "storePass")
+						.param("template", "bom")
+						.param("visual", "true")
+						.param("page", "1")
+						.param("download", "true"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_PDF))
+				.andExpect(header().string("X-Pdf-Engine", "PDFBox (Digital Signature)"))
+				.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("contract_signed.pdf")))
+				.andExpect(content().bytes(mockSigned));
 	}
 }
 

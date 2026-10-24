@@ -59,6 +59,107 @@ public class QuotationResourceAssembler {
 	}
 
 	/**
+	 * 將上傳之 PDF 檔案與加密參數轉換為應用層 EncryptPdfCommand
+	 */
+	public com.example.demo.application.shared.command.EncryptPdfCommand toEncryptCommand(
+			MultipartFile file,
+			String userPassword,
+			String ownerPassword,
+			Boolean allowPrinting,
+			Boolean allowCopy) throws IOException {
+		if (file == null || file.isEmpty()) {
+			throw new IllegalArgumentException("上傳之 PDF 檔案不可為空");
+		}
+		return new com.example.demo.application.shared.command.EncryptPdfCommand(
+				file.getBytes(),
+				userPassword,
+				ownerPassword,
+				allowPrinting != null ? allowPrinting : true,
+				allowCopy != null ? allowCopy : true
+		);
+	}
+
+	/**
+	 * 將上傳之受保護 PDF 檔案與密碼轉換為應用層 DecryptPdfCommand
+	 */
+	public com.example.demo.application.shared.command.DecryptPdfCommand toDecryptCommand(
+			MultipartFile file,
+			String password) throws IOException {
+		if (file == null || file.isEmpty()) {
+			throw new IllegalArgumentException("上傳之 PDF 檔案不可為空");
+		}
+		return new com.example.demo.application.shared.command.DecryptPdfCommand(file.getBytes(), password);
+	}
+
+	/**
+	 * 將上傳之 PDF 檔案、PKCS#12 金鑰庫與簽章參數轉換為應用層 SignPdfCommand
+	 */
+	public com.example.demo.application.shared.command.SignPdfCommand toSignCommand(
+			MultipartFile file,
+			MultipartFile keyStoreFile,
+			String keyStorePassword,
+			String keyAlias,
+			String reason,
+			String location,
+			String contact,
+			Boolean visualSignature,
+			Integer page,
+			Float x,
+			Float y,
+			Float width,
+			Float height) throws IOException {
+		return toSignCommand(file, keyStoreFile, keyStorePassword, keyAlias, reason, location, contact, visualSignature, page, x, y, width, height, null);
+	}
+
+	/**
+	 * 將上傳之 PDF 檔案、PKCS#12 金鑰庫、範本識別碼與簽章參數轉換為應用層 SignPdfCommand
+	 */
+	public com.example.demo.application.shared.command.SignPdfCommand toSignCommand(
+			MultipartFile file,
+			MultipartFile keyStoreFile,
+			String keyStorePassword,
+			String keyAlias,
+			String reason,
+			String location,
+			String contact,
+			Boolean visualSignature,
+			Integer page,
+			Float x,
+			Float y,
+			Float width,
+			Float height,
+			String templateName) throws IOException {
+		if (file == null || file.isEmpty()) {
+			throw new IllegalArgumentException("待簽章之 PDF 檔案不可為空");
+		}
+		if (keyStoreFile == null || keyStoreFile.isEmpty()) {
+			throw new IllegalArgumentException("PKCS#12 憑證金鑰庫檔案 (.p12/.pfx) 不可為空");
+		}
+		if (keyStorePassword == null || keyStorePassword.isBlank()) {
+			throw new IllegalArgumentException("金鑰庫解鎖密碼不可為空");
+		}
+
+		return new com.example.demo.application.shared.command.SignPdfCommand(
+				file.getBytes(),
+				keyStoreFile.getBytes(),
+				keyStorePassword,
+				keyAlias,
+				reason,
+				location,
+				contact,
+				visualSignature != null ? visualSignature : true,
+				page != null ? page : 1,
+				x != null ? x : 360f,
+				y != null ? y : 50f,
+				width != null ? width : 180f,
+				height != null ? height : 60f,
+				templateName,
+				null,
+				null
+		);
+	}
+
+	/**
 	 * 將表現層請求載體轉換為應用層 DTO
 	 *
 	 * @param resource 請求資料載體 (不可為 null)

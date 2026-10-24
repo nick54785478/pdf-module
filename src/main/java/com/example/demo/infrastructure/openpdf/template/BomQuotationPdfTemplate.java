@@ -7,6 +7,10 @@ import com.example.demo.infrastructure.openpdf.core.OpenPdfFontProvider;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfPageEventHelper;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfStylePalette;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfWatermarkStyle;
+import com.example.demo.infrastructure.pdfbox.security.customizer.impl.BomQuotationVisualSignatureCustomizer;
+import com.example.demo.infrastructure.pdfbox.security.customizer.PdfVisualSignatureCustomizer;
+import com.example.demo.infrastructure.pdfbox.security.policy.impl.PAdESCompliantSignaturePolicy;
+import com.example.demo.infrastructure.pdfbox.security.policy.PdfSignaturePolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.lowagie.text.Document;
@@ -57,9 +61,57 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 
 	private final OpenPdfFontProvider fontProvider;
 
+	private static final PdfSignaturePolicy BOM_SIGNATURE_POLICY = new PAdESCompliantSignaturePolicy();
+	private static final PdfVisualSignatureCustomizer BOM_VISUAL_CUSTOMIZER = new BomQuotationVisualSignatureCustomizer();
+
+	@Override
+	public String getTemplateName() {
+		return "bom";
+	}
+
 	@Override
 	public OpenPdfWatermarkStyle getWatermarkStyle() {
 		return BOM_QUOTATION_WATERMARK_STYLE;
+	}
+
+	@Override
+	public PdfSignaturePolicy getSignaturePolicy() {
+		return BOM_SIGNATURE_POLICY;
+	}
+
+	@Override
+	public PdfVisualSignatureCustomizer getVisualSignatureCustomizer() {
+		return BOM_VISUAL_CUSTOMIZER;
+	}
+
+	@Override
+	public String getDefaultSignatureReason() {
+		return "BOM 原物料報價核准簽署";
+	}
+
+	@Override
+	public String getDefaultSignatureLocation() {
+		return "台北營運總部";
+	}
+
+	@Override
+	public Float getDefaultSignatureX() {
+		return 80f; // 精準對齊 BOM 報價單「經辦/主管簽核」簽章格位
+	}
+
+	@Override
+	public Float getDefaultSignatureY() {
+		return 50f;
+	}
+
+	@Override
+	public Float getDefaultSignatureWidth() {
+		return 180f;
+	}
+
+	@Override
+	public Float getDefaultSignatureHeight() {
+		return 62f;
 	}
 
 	@Override
@@ -439,7 +491,7 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 		signLeft.setBorderColor(border);
 		signLeft.setPadding(8f);
 		signLeft.addElement(new Paragraph("晨星智造整合科技股份有限公司 (經辦/主管簽核)", bold));
-		signLeft.addElement(new Paragraph("\n\n業務經辦：王大衛                    主管簽章：____________", regular));
+		signLeft.addElement(new Paragraph("\n\n業務經辦：王大衛                    主管簽章：[ 支援 PAdES 數位憑證簽署 ]", regular));
 		signLeft.addElement(new Paragraph("日期：2026 年 10 月 23 日", muted));
 		signTable.addCell(signLeft);
 

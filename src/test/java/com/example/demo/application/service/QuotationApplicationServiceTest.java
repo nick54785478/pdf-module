@@ -6,9 +6,13 @@ import com.example.demo.application.port.out.PdfExtractorPort;
 import com.example.demo.application.port.out.QuotationParserPort;
 import com.example.demo.application.port.out.QuotationPdfGeneratorPort;
 import com.example.demo.application.port.out.ReportGeneratorPort;
+import com.example.demo.application.port.out.PdfSecurityExecutorPort;
 import com.example.demo.application.port.out.PdfWatermarkExecutorPort;
 import com.example.demo.application.shared.command.AddWatermarkCommand;
+import com.example.demo.application.shared.command.DecryptPdfCommand;
+import com.example.demo.application.shared.command.EncryptPdfCommand;
 import com.example.demo.application.shared.command.ParseQuotationPdfCommand;
+import com.example.demo.application.shared.command.SignPdfCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.dto.QuotationItemGottenResult;
 import com.example.demo.application.shared.query.GetQuotationQuery;
@@ -69,6 +73,9 @@ class QuotationApplicationServiceTest {
 
 	@Mock
 	private PdfWatermarkExecutorPort pdfWatermarkPort;
+
+	@Mock
+	private PdfSecurityExecutorPort pdfSecurityPort;
 
 	@InjectMocks
 	private QuotationApplicationService quotationApplicationService;
@@ -359,6 +366,123 @@ class QuotationApplicationServiceTest {
 		assertNotNull(result);
 		assertArrayEquals(watermarkedPdf, result);
 		verify(pdfWatermarkPort, times(1)).stampWatermark(rawPdf, "機密草稿");
+	}
+
+	/**
+	 * Feature: PDF 安全加密 UseCase
+	 * Scenario: 正常流程 - 傳入有效之 EncryptPdfCommand，協調 PdfSecurityExecutorPort 執行加密
+	 *
+	 * Given: 包含原始 PDF 與密碼之合法 EncryptPdfCommand
+	 * When: 調用 quotationApplicationService.encryptPdf(command)
+	 * Then: 成功回傳加密後之 byte[]，且 PdfSecurityExecutorPort 被精準調用一次
+	 */
+	@Test
+	@DisplayName("PDF加密UseCase-正常流程-調用port並回傳加密內容")
+	void encryptPdf_validCommand_success() {
+		// Given
+		byte[] raw = "%PDF-1.5 test raw".getBytes();
+		byte[] encrypted = "%PDF-1.5 test encrypted".getBytes();
+		EncryptPdfCommand command = new EncryptPdfCommand(raw, "pwd123", "owner123", true, false);
+		when(pdfSecurityPort.encryptPdf(command)).thenReturn(encrypted);
+
+		// When
+		byte[] result = quotationApplicationService.encryptPdf(command);
+
+		// Then
+		assertNotNull(result);
+		assertArrayEquals(encrypted, result);
+		verify(pdfSecurityPort, times(1)).encryptPdf(command);
+	}
+
+	/**
+	 * Feature: PDF 安全加密 UseCase 防禦分支
+	 * Scenario: 傳入 null command 應拋出 IllegalArgumentException
+	 */
+	@Test
+	@DisplayName("PDF加密UseCase-防禦分支-傳入null應拋出異常")
+	void encryptPdf_nullCommand_throwsException() {
+		assertThrows(IllegalArgumentException.class, () ->
+				quotationApplicationService.encryptPdf(null)
+		);
+		verify(pdfSecurityPort, never()).encryptPdf(any());
+	}
+
+	/**
+	 * Feature: PDF 安全解密 UseCase
+	 * Scenario: 正常流程 - 傳入有效之 DecryptPdfCommand，協調 PdfSecurityExecutorPort 執行解密
+	 *
+	 * Given: 包含加密 PDF 與正確密碼之 DecryptPdfCommand
+	 * When: 調用 quotationApplicationService.decryptPdf(command)
+	 * Then: 成功回傳解密後之標準 byte[]，且 PdfSecurityExecutorPort 被精準調用一次
+	 */
+	@Test
+	@DisplayName("PDF解密UseCase-正常流程-調用port並回傳解密內容")
+	void decryptPdf_validCommand_success() {
+		// Given
+		byte[] encrypted = "%PDF-1.5 encrypted".getBytes();
+		byte[] decrypted = "%PDF-1.5 decrypted".getBytes();
+		DecryptPdfCommand command = new DecryptPdfCommand(encrypted, "pwd123");
+		when(pdfSecurityPort.decryptPdf(command)).thenReturn(decrypted);
+
+		// When
+		byte[] result = quotationApplicationService.decryptPdf(command);
+
+		// Then
+		assertNotNull(result);
+		assertArrayEquals(decrypted, result);
+		verify(pdfSecurityPort, times(1)).decryptPdf(command);
+	}
+
+	/**
+	 * Feature: PDF 安全解密 UseCase 防禦分支
+	 * Scenario: 傳入 null command 應拋出 IllegalArgumentException
+	 */
+	@Test
+	@DisplayName("PDF解密UseCase-防禦分支-傳入null應拋出異常")
+	void decryptPdf_nullCommand_throwsException() {
+		assertThrows(IllegalArgumentException.class, () ->
+				quotationApplicationService.decryptPdf(null)
+		);
+		verify(pdfSecurityPort, never()).decryptPdf(any());
+	}
+
+	/**
+	 * Feature: PDF 數位簽章 UseCase
+	 * Scenario: 正常流程 - 傳入有效之 SignPdfCommand，協調 PdfSecurityExecutorPort 執行 PKCS#7 數位簽署
+	 *
+	 * Given: 包含原始 PDF、PKCS#12 金鑰庫與簽章詮釋資料之 SignPdfCommand
+	 * When: 調用 quotationApplicationService.signPdf(command)
+	 * Then: 成功回傳簽署後之 byte[]，且 PdfSecurityExecutorPort 被精準調用一次
+	 */
+	@Test
+	@DisplayName("PDF數位簽章UseCase-正常流程-調用port並回傳簽章內容")
+	void signPdf_validCommand_success() {
+		// Given
+		byte[] raw = "%PDF-1.5 raw".getBytes();
+		byte[] signed = "%PDF-1.5 signed".getBytes();
+		SignPdfCommand command = new SignPdfCommand(raw, "fakeP12".getBytes(), "secret", "Approval", "Taipei");
+		when(pdfSecurityPort.signPdf(command)).thenReturn(signed);
+
+		// When
+		byte[] result = quotationApplicationService.signPdf(command);
+
+		// Then
+		assertNotNull(result);
+		assertArrayEquals(signed, result);
+		verify(pdfSecurityPort, times(1)).signPdf(command);
+	}
+
+	/**
+	 * Feature: PDF 數位簽章 UseCase 防禦分支
+	 * Scenario: 傳入 null command 應拋出 IllegalArgumentException
+	 */
+	@Test
+	@DisplayName("PDF數位簽章UseCase-防禦分支-傳入null應拋出異常")
+	void signPdf_nullCommand_throwsException() {
+		assertThrows(IllegalArgumentException.class, () ->
+				quotationApplicationService.signPdf(null)
+		);
+		verify(pdfSecurityPort, never()).signPdf(any());
 	}
 
 	private QuotationGottenResult createSampleQuotation(String quotationNo) {
