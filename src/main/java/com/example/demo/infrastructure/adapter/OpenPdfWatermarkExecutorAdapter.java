@@ -1,6 +1,6 @@
 package com.example.demo.infrastructure.adapter;
 
-import com.example.demo.application.port.out.PdfWatermarkPort;
+import com.example.demo.application.port.out.PdfWatermarkExecutorPort;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfFontProvider;
 import com.lowagie.text.Element;
 import com.lowagie.text.Rectangle;
@@ -19,7 +19,7 @@ import java.io.ByteArrayOutputStream;
 /**
  * OpenPDF 浮水印蓋印適配器 (Outbound Adapter)
  * <p>
- * 遵循 Clean Architecture 與六角形架構規範，實作應用層 {@link PdfWatermarkPort} 輸出端口。
+ * 遵循 Clean Architecture 與六角形架構規範，實作應用層 {@link PdfWatermarkExecutorPort} 輸出端口。
  * 作為基礎設施層與外部 OpenPDF 引擎的匯聚點，透過 {@link PdfReader} 與 {@link PdfStamper}，
  * 在現有 PDF 檔案之每一頁幾何中心疊加 45 度傾斜、半透明 (Opacity 0.12)、支援微軟正黑體的防偽浮水印。
  * 遵循命名規範 3-9：Outbound Adapter 一律以 Adapter 結尾。
@@ -28,7 +28,7 @@ import java.io.ByteArrayOutputStream;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OpenPdfWatermarkAdapter implements PdfWatermarkPort {
+public class OpenPdfWatermarkExecutorAdapter implements PdfWatermarkExecutorPort {
 
 	private final OpenPdfFontProvider fontProvider;
 

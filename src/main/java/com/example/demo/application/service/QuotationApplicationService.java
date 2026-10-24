@@ -7,7 +7,7 @@ import com.example.demo.application.port.in.GenerateTemplateQuotationPdfUseCase;
 import com.example.demo.application.port.in.ParseQuotationPdfUseCase;
 import com.example.demo.application.port.out.MockServicePort;
 import com.example.demo.application.port.out.PdfExtractorPort;
-import com.example.demo.application.port.out.PdfWatermarkPort;
+import com.example.demo.application.port.out.PdfWatermarkExecutorPort;
 import com.example.demo.application.port.out.QuotationParserPort;
 import com.example.demo.application.port.out.QuotationPdfGeneratorPort;
 import com.example.demo.application.port.out.ReportGeneratorPort;
@@ -28,7 +28,7 @@ import java.util.Map;
  * 實作 {@link GenerateQuotationPdfUseCase}、{@link GenerateTemplateQuotationPdfUseCase}、{@link ParseQuotationPdfUseCase}
  * 與 {@link AddWatermarkUseCase} 入向端口，
  * 協調 {@link MockServicePort}、{@link QuotationPdfGeneratorPort}、{@link ReportGeneratorPort}、
- * {@link PdfExtractorPort}、{@link QuotationParserPort} 與 {@link PdfWatermarkPort} 進行報價單生成、解析與浮水印蓋印。
+ * {@link PdfExtractorPort}、{@link QuotationParserPort} 與 {@link PdfWatermarkExecutorPort} 進行報價單生成、解析與浮水印蓋印。
  * 遵循命名規範 3-9：Inbound Adapter 實作以 ApplicationService 結尾。
  * </p>
  */
@@ -43,14 +43,14 @@ public class QuotationApplicationService implements GenerateQuotationPdfUseCase,
 	private final QuotationReportAssembler quotationReportAssembler;
 	private final PdfExtractorPort pdfExtractorPort;
 	private final QuotationParserPort quotationParserPort;
-	private final PdfWatermarkPort pdfWatermarkPort;
+	private final PdfWatermarkExecutorPort pdfWatermarkPort;
 
 	/**
 	 * 依據查詢條件 (ID) 取得報價單資料並產出 PDF 檔案
 	 * <p>
 	 * 依據業務指示「不必檢核只要提供回傳資料就好」，直接由 {@link MockServicePort} 提供對應 ID 之範本資料，
 	 * 並傳入 {@link QuotationPdfGeneratorPort} 產出 PDF 二進位 byte 陣列。
-	 * 若查詢條件包含 {@code watermarkText}，則調用 {@link PdfWatermarkPort} 為其加蓋防偽浮水印。
+	 * 若查詢條件包含 {@code watermarkText}，則調用 {@link PdfWatermarkExecutorPort} 為其加蓋防偽浮水印。
 	 * </p>
 	 *
 	 * @param query 查詢條件物件 (包含 ID 與可選之浮水印文字)
@@ -61,13 +61,10 @@ public class QuotationApplicationService implements GenerateQuotationPdfUseCase,
 		log.info("應用層收到 Query 產出報價單 PDF 請求: id={}, watermark={}",
 				query != null ? query.id() : null, query != null ? query.watermarkText() : null);
 		QuotationGottenResult quotation = mockServicePort.getQuotation(query);
-		byte[] pdfBytes = quotationPdfPort.generateQuotationPdf(quotation);
+		String watermarkText = query != null ? query.watermarkText() : null;
 
-		if (pdfBytes != null && query != null && query.watermarkText() != null && !query.watermarkText().trim().isEmpty()) {
-			log.info("為 OpenPDF 報價單蓋印浮水印: watermark={}", query.watermarkText());
-			pdfBytes = pdfWatermarkPort.stampWatermark(pdfBytes, query.watermarkText());
-		}
-		return pdfBytes;
+		// 透過 OpenPDF 原生頁面生命週期一次性繪製浮水印 (Single-pass Zero-Overhead Rendering)
+		return quotationPdfPort.generateQuotationPdf(quotation, watermarkText);
 	}
 
 	/**
@@ -75,7 +72,7 @@ public class QuotationApplicationService implements GenerateQuotationPdfUseCase,
 	 * <p>
 	 * 協調 {@link MockServicePort} 取得報價單資料，並由 {@link QuotationReportAssembler} 組裝為報表參數與資料集，
 	 * 最後調用 {@link ReportGeneratorPort} 讀取 bom_quotation_template 報表設計檔生成 PDF。
-	 * 若查詢條件包含 {@code watermarkText}，則調用 {@link PdfWatermarkPort} 為其加蓋防偽浮水印。
+	 * 若查詢條件包含 {@code watermarkText}，則調用 {@link PdfWatermarkExecutorPort} 為其加蓋防偽浮水印。
 	 * </p>
 	 *
 	 * @param query 查詢條件物件 (包含 ID 與可選之浮水印文字)

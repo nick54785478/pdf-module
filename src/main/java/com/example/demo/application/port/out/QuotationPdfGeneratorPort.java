@@ -19,5 +19,17 @@ public interface QuotationPdfGeneratorPort {
 	 * @param quotation 報價單完整資訊 (強型別 DTO)
 	 * @return PDF 檔案之二進位 byte 陣列；若生成失敗則回傳 null 或空陣列
 	 */
-	byte[] generateQuotationPdf(QuotationGottenResult quotation);
+	default byte[] generateQuotationPdf(QuotationGottenResult quotation) {
+		return generateQuotationPdf(quotation, null);
+	}
+
+	/**
+	 * 依據報價單資料傳輸物件與防偽浮水印文字生成 PDF 二進位位元組陣列 (生成時單次印製)
+	 *
+	 * @param quotation     報價單完整資訊 (強型別 DTO)
+	 * @param watermarkText 可選之防偽浮水印文字 (若為 null 或空白則不繪製浮水印)
+	 * @return PDF 檔案之二進位 byte 陣列；若生成失敗則回傳 null 或空陣列
+	 */
+	byte[] generateQuotationPdf(QuotationGottenResult quotation, String watermarkText);
 }
+

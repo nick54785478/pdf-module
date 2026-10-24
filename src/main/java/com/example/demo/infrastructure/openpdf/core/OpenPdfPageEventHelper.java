@@ -44,12 +44,22 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
     @Setter
     private String watermarkText;
 
+    /**
+     * 浮水印外觀樣式配置 (預設為 OpenPdfWatermarkStyle.DEFAULT)
+     */
+    @Setter
+    private OpenPdfWatermarkStyle watermarkStyle = OpenPdfWatermarkStyle.DEFAULT;
+
     public OpenPdfPageEventHelper(BaseFont baseFont) {
         this.baseFont = baseFont;
     }
 
     public String getWatermarkText() {
         return watermarkText;
+    }
+
+    public OpenPdfWatermarkStyle getWatermarkStyle() {
+        return watermarkStyle != null ? watermarkStyle : OpenPdfWatermarkStyle.DEFAULT;
     }
 
     @Override
@@ -195,26 +205,68 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
     }
 
     /**
-     * 於頁面中央繪製傾斜半透明浮水印
+     * 於頁面中央繪製傾斜半透明浮水印 (依據 watermarkStyle 樣式屬性，支援次級副標與防偽鋼印外框)
      */
     private void drawWatermark(PdfWriter writer, Document document, String text) {
         try {
+            OpenPdfWatermarkStyle style = getWatermarkStyle();
             PdfContentByte under = writer.getDirectContentUnder();
             under.saveState();
 
+            // 1. 設定圖層不透明度
             PdfGState gs = new PdfGState();
-            gs.setFillOpacity(0.07f);
+            gs.setFillOpacity(style.opacity());
             under.setGState(gs);
 
-            under.beginText();
-            under.setFontAndSize(baseFont, 46f);
-            under.setColorFill(Color.DARK_GRAY);
-
+            // 2. 計算頁面中心點與旋轉矩陣 (以中心為原點 (0,0) 進行旋轉排版)
             float centerX = (document.left() + document.right()) / 2f;
             float centerY = (document.top() + document.bottom()) / 2f;
-            under.showTextAligned(Element.ALIGN_CENTER, text, centerX, centerY, 45f);
+            double rad = Math.toRadians(style.rotation());
+            float cos = (float) Math.cos(rad);
+            float sin = (float) Math.sin(rad);
+            under.concatCTM(cos, sin, -sin, cos, centerX, centerY);
 
+            // 3. 測量文字長度與垂直排版座標
+            float mainWidth = baseFont.getWidthPoint(text, style.fontSize());
+            boolean hasSub = style.subText() != null && !style.subText().trim().isEmpty();
+            float subFontSize = Math.max(8.5f, style.fontSize() * 0.22f);
+            float subWidth = hasSub ? baseFont.getWidthPoint(style.subText().trim(), subFontSize) : 0f;
+
+            float mainY = hasSub ? 2f : (-style.fontSize() * 0.32f);
+            float subY = hasSub ? (-style.fontSize() * 0.40f - subFontSize) : 0f;
+
+            // 4. 繪製防偽鋼印圓角雙外框 (若啟用 boxed)
+            if (style.boxed()) {
+                float boxW = Math.max(mainWidth, subWidth) + 38f;
+                float boxH = style.fontSize() + (hasSub ? subFontSize + 26f : 20f);
+                float boxX = -boxW / 2f;
+                float boxY = -boxH / 2f;
+
+                // 主外框 (線寬 1.5pt, 圓角 6pt)
+                under.setLineWidth(1.5f);
+                under.setColorStroke(style.color());
+                under.roundRectangle(boxX, boxY, boxW, boxH, 6f);
+                under.stroke();
+
+                // 內細裝飾線 (線寬 0.6pt, 圓角 4pt, 間距 3pt)
+                under.setLineWidth(0.6f);
+                under.roundRectangle(boxX + 3f, boxY + 3f, boxW - 6f, boxH - 6f, 4f);
+                under.stroke();
+            }
+
+            // 5. 繪製主浮水印文字與副標
+            under.beginText();
+            under.setFontAndSize(baseFont, style.fontSize());
+            under.setColorFill(style.color());
+            under.showTextAligned(Element.ALIGN_CENTER, text, 0f, mainY, 0f);
+
+            if (hasSub) {
+                under.setFontAndSize(baseFont, subFontSize);
+                under.setColorFill(style.color());
+                under.showTextAligned(Element.ALIGN_CENTER, style.subText().trim(), 0f, subY, 0f);
+            }
             under.endText();
+
             under.restoreState();
         } catch (Exception e) {
             log.warn("繪製浮水印發生非致命例外: text={}", text, e);

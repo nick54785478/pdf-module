@@ -9,7 +9,7 @@ package com.example.demo.application.port.out;
  * 方法簽章嚴禁使用技術類或環境相依之物件（如 HttpServletRequest 或 Spring Resource），維持純粹的 Java 基礎資料型別。
  * </p>
  */
-public interface PdfWatermarkPort {
+public interface PdfWatermarkExecutorPort {
 
 	/**
 	 * 於傳入之 PDF 二進位位元組陣列中，為每一頁動態疊加半透明傾斜浮水印

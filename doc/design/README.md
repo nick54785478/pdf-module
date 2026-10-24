@@ -56,19 +56,19 @@ flowchart TD
         InPort3["ParseQuotationPdfUseCase"]
         InPort4["AddWatermarkUseCase"]
         AppService["QuotationApplicationService"]
-        OutPort1["QuotationPdfGeneratorPort"]
+        OutPort1["QuotationPdfGeneratorPort<br/>(支援生成時單次印製浮水印)"]
         OutPort2["ReportGeneratorPort"]
         OutPort3["PdfExtractorPort"]
         OutPort4["QuotationParserPort"]
-        OutPort5["PdfWatermarkPort"]
+        OutPort5["PdfWatermarkExecutorPort<br/>(通用 PDF 後製蓋印)"]
     end
 
     subgraph Infrastructure ["Infrastructure Layer (基礎設施層)"]
         subgraph OpenPDF_Subsystem ["OpenPDF 子系統"]
-            Adapter1["OpenQuotationPdfGeneratorAdapter"]
-            Adapter5["OpenPdfWatermarkAdapter (通用浮水印蓋印)"]
-            Template1["BomQuotationPdfTemplate<br/>(雙層防孤兒排版)"]
-            Core1["OpenPdfPageEventHelper<br/>OpenPdfCellFactory<br/>OpenPdfFontProvider"]
+            Adapter1["OpenQuotationPdfGeneratorAdapter<br/>(單次生成零二次讀寫開銷)"]
+            Adapter5["OpenPdfWatermarkExecutorAdapter<br/>(BIRT 與上傳文件專用 Stamper)"]
+            Template1["BomQuotationPdfTemplate<br/>(雙層防孤兒 + 專屬尊榮鋼印浮水印)"]
+            Core1["OpenPdfPageEventHelper<br/>OpenPdfCellFactory<br/>OpenPdfFontProvider<br/>OpenPdfWatermarkStyle"]
         end
 
         subgraph BIRT_Subsystem ["Eclipse BIRT 子系統"]
@@ -99,10 +99,10 @@ flowchart TD
 ### 4.1 OpenPDF 程式化排版體系 (`doc/design/openpdf/`)
 1. **[OpenPDF 報表與文件範本生成整體架構設計 (openpdf_architecture_design.md)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_architecture_design.md)**
    * **適合讀者**：架構師、所有開發工程師。
-   * **重點內容**：Clean Architecture 六角分層、四項通用排版積木（`FontProvider` 字體單例快取、`StylePalette` 企業調色盤、`CellFactory` 儲存格工廠、`PageEventHelper` 跨頁頁碼控制器）。
+   * **重點內容**：Clean Architecture 六角分層、五項通用排版積木（`FontProvider` 字體單例快取、`StylePalette` 企業調色盤、`CellFactory` 儲存格工廠、`PageEventHelper` 跨頁頁碼控制器、`OpenPdfWatermarkStyle` 視覺樣式值物件）、**浮水印雙軌協同架構 (Dual-Track)**、**BOM 報價單專屬尊榮防偽雙線鋼印浮水印**。
 2. **[自定義 OpenPDF 業務範本開發實戰指南 (custom_openpdf_template_guide.md)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/custom_openpdf_template_guide.md)**
    * **適合讀者**：需新增業務報表（如「出貨單 DeliveryNote」或「採購單 PO」）的開發工程師。
-   * **重點內容**：標準 6 步驟落地流程（DTO $\rightarrow$ Port $\rightarrow$ Template $\rightarrow$ Adapter $\rightarrow$ UseCase $\rightarrow$ Controller）與排版最佳實踐。
+   * **重點內容**：標準 6 步驟落地流程（DTO $\rightarrow$ Port $\rightarrow$ Template $\rightarrow$ Adapter $\rightarrow$ UseCase $\rightarrow$ Controller）、範本自治與專屬浮水印樣式 (`getWatermarkStyle()`) 覆寫。
 3. **[動態資料量智慧防孤兒區塊排版技術指南 (openpdf_anti_orphan_pagination_guide.md)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_anti_orphan_pagination_guide.md)**
    * **適合讀者**：處理報表分頁、版面微調與邊界排版問題之工程師。
    * **重點內容**：動態資料量數學模型、結尾複合區塊防拆原子化 (`setKeepTogether(true)`)、錨點明細牽引換頁演算法。
@@ -140,3 +140,5 @@ flowchart TD
   $\rightarrow$ 請採用 BIRT 範本驅動體系，參考 [birt_pdf_module_operations_guide.md](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/birt/birt_pdf_module_operations_guide.md)。
 * **Q4：在 Docker / Kubernetes 容器上執行時，中文字型變成豆腐塊 (□□□) 或問號？**  
   $\rightarrow$ 請參考 [birt_pdf_module_operations_guide.md 4.2 節](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/birt/birt_pdf_module_operations_guide.md#4-字體配置與容器化跨平台部署-fonts--docker) 中的 Dockerfile 中文字型安裝與字體快取更新最佳實踐。
+* **Q5：如何為報表加蓋浮水印？應該在生成時印上還是後製蓋印？**  
+  $\rightarrow$ 系統支援「雙軌協同架構」：OpenPDF 報表直接於 `generateQuotationPdf(quotation, "文字")` 生成當下單次繪製（零額外 I/O 與二次讀寫開銷，且自動套用 BOM 專屬防偽鋼印樣式）；若為 BIRT 報表或外部既有 PDF 上傳，則由 `PdfWatermarkExecutorPort.stampWatermark` 通用後製加蓋。詳情參照 [openpdf_architecture_design.md 3.6 節](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_architecture_design.md#36-浮水印雙軌協同架構-dual-track-watermark-architecture)。

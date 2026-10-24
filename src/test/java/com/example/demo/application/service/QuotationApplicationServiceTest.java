@@ -6,7 +6,7 @@ import com.example.demo.application.port.out.PdfExtractorPort;
 import com.example.demo.application.port.out.QuotationParserPort;
 import com.example.demo.application.port.out.QuotationPdfGeneratorPort;
 import com.example.demo.application.port.out.ReportGeneratorPort;
-import com.example.demo.application.port.out.PdfWatermarkPort;
+import com.example.demo.application.port.out.PdfWatermarkExecutorPort;
 import com.example.demo.application.shared.command.AddWatermarkCommand;
 import com.example.demo.application.shared.command.ParseQuotationPdfCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,7 +68,7 @@ class QuotationApplicationServiceTest {
 	private QuotationParserPort quotationParserPort;
 
 	@Mock
-	private PdfWatermarkPort pdfWatermarkPort;
+	private PdfWatermarkExecutorPort pdfWatermarkPort;
 
 	@InjectMocks
 	private QuotationApplicationService quotationApplicationService;
@@ -148,7 +149,7 @@ class QuotationApplicationServiceTest {
 		byte[] expectedBytes = "%PDF-1.4 Mock Query Content".getBytes();
 
 		when(mockServicePort.getQuotation(query)).thenReturn(mockQuotation);
-		when(quotationPdfPort.generateQuotationPdf(mockQuotation)).thenReturn(expectedBytes);
+		when(quotationPdfPort.generateQuotationPdf(mockQuotation, null)).thenReturn(expectedBytes);
 
 		// When
 		byte[] result = quotationApplicationService.generateQuotationPdf(query);
@@ -157,7 +158,7 @@ class QuotationApplicationServiceTest {
 		assertNotNull(result);
 		assertArrayEquals(expectedBytes, result);
 		verify(mockServicePort, times(1)).getQuotation(query);
-		verify(quotationPdfPort, times(1)).generateQuotationPdf(mockQuotation);
+		verify(quotationPdfPort, times(1)).generateQuotationPdf(mockQuotation, null);
 	}
 
 	/**
@@ -177,7 +178,7 @@ class QuotationApplicationServiceTest {
 		byte[] expectedBytes = "%PDF-1.4 Default Content".getBytes();
 
 		when(mockServicePort.getQuotation(query)).thenReturn(defaultQuotation);
-		when(quotationPdfPort.generateQuotationPdf(defaultQuotation)).thenReturn(expectedBytes);
+		when(quotationPdfPort.generateQuotationPdf(defaultQuotation, null)).thenReturn(expectedBytes);
 
 		// When
 		byte[] result = quotationApplicationService.generateQuotationPdf(query);
@@ -186,7 +187,7 @@ class QuotationApplicationServiceTest {
 		assertNotNull(result);
 		assertArrayEquals(expectedBytes, result);
 		verify(mockServicePort, times(1)).getQuotation(query);
-		verify(quotationPdfPort, times(1)).generateQuotationPdf(defaultQuotation);
+		verify(quotationPdfPort, times(1)).generateQuotationPdf(defaultQuotation, null);
 	}
 
 	/**
@@ -301,24 +302,22 @@ class QuotationApplicationServiceTest {
 
 	/**
 	 * Feature: 產出 OpenPDF 報價單並動態加蓋浮水印
-	 * Scenario: 正常流程 - Query 含有浮水印文字時，產出 PDF 後調用 PdfWatermarkPort 蓋印
+	 * Scenario: 正常流程 - Query 含有浮水印文字時，直接調用 QuotationPdfGeneratorPort 於文件生成時單次印製 (Single-pass)
 	 *
 	 * Given: 包含 ID 與 watermarkText="正式報價" 之 GetQuotationQuery
 	 * When: 調用 QuotationApplicationService.generateQuotationPdf(query)
-	 * Then: 驗證先由 quotationPdfPort 產出，再由 pdfWatermarkPort 進行浮水印蓋印
+	 * Then: 驗證由 quotationPdfPort 於生成時單次完成浮水印繪製，無需額外調用 pdfWatermarkPort 進行二次讀寫
 	 */
 	@Test
-	@DisplayName("OpenPDF報價單生成-包含浮水印-成功串接PdfWatermarkPort蓋印")
+	@DisplayName("OpenPDF報價單生成-包含浮水印-由QuotationPdfPort原生生成時一次印製")
 	void generateQuotationPdf_withWatermark_success() {
 		// Given
 		GetQuotationQuery query = new GetQuotationQuery("QT-2026-WM", "正式報價");
 		QuotationGottenResult quotation = createSampleQuotation("QT-2026-WM");
-		byte[] rawPdf = "%PDF-1.4 OpenPDF raw".getBytes();
-		byte[] watermarkedPdf = "%PDF-1.4 OpenPDF watermarked".getBytes();
+		byte[] watermarkedPdf = "%PDF-1.4 OpenPDF native watermarked".getBytes();
 
 		when(mockServicePort.getQuotation(query)).thenReturn(quotation);
-		when(quotationPdfPort.generateQuotationPdf(quotation)).thenReturn(rawPdf);
-		when(pdfWatermarkPort.stampWatermark(rawPdf, "正式報價")).thenReturn(watermarkedPdf);
+		when(quotationPdfPort.generateQuotationPdf(quotation, "正式報價")).thenReturn(watermarkedPdf);
 
 		// When
 		byte[] result = quotationApplicationService.generateQuotationPdf(query);
@@ -326,7 +325,8 @@ class QuotationApplicationServiceTest {
 		// Then
 		assertNotNull(result);
 		assertArrayEquals(watermarkedPdf, result);
-		verify(pdfWatermarkPort, times(1)).stampWatermark(rawPdf, "正式報價");
+		verify(quotationPdfPort, times(1)).generateQuotationPdf(quotation, "正式報價");
+		verify(pdfWatermarkPort, never()).stampWatermark(any(), any());
 	}
 
 	/**

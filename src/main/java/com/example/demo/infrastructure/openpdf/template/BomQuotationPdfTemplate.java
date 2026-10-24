@@ -6,6 +6,7 @@ import com.example.demo.infrastructure.openpdf.core.OpenPdfCellFactory;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfFontProvider;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfPageEventHelper;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfStylePalette;
+import com.example.demo.infrastructure.openpdf.core.OpenPdfWatermarkStyle;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.lowagie.text.Document;
@@ -44,10 +45,35 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 	private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,##0");
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
+	/**
+	 * BOM 報價單專屬尊榮防偽鋼印浮水印樣式
+	 * <p>
+	 * 採用企業主品牌深海軍藍 (Primary Navy, RGB 26, 54, 93)、42pt 尊榮主標、
+	 * 45 度經典傾角、0.075f 極致通透透明度，搭配雙線圓角防偽鋼印外框
+	 * 以及晨星智造英文副標 "MORNING STAR INTELLIGENT • BOM QUOTATION"。
+	 * </p>
+	 */
+	private static final OpenPdfWatermarkStyle BOM_QUOTATION_WATERMARK_STYLE = OpenPdfWatermarkStyle.BOM_QUOTATION;
+
 	private final OpenPdfFontProvider fontProvider;
 
 	@Override
+	public OpenPdfWatermarkStyle getWatermarkStyle() {
+		return BOM_QUOTATION_WATERMARK_STYLE;
+	}
+
+	@Override
 	public void render(QuotationGottenResult quotation, OutputStream outputStream) throws Exception {
+		render(quotation, outputStream, null, getWatermarkStyle());
+	}
+
+	@Override
+	public void render(QuotationGottenResult quotation, OutputStream outputStream, String watermarkText) throws Exception {
+		render(quotation, outputStream, watermarkText, getWatermarkStyle());
+	}
+
+	@Override
+	public void render(QuotationGottenResult quotation, OutputStream outputStream, String watermarkText, OpenPdfWatermarkStyle watermarkStyle) throws Exception {
 		if (quotation == null) {
 			throw new IllegalArgumentException("報價單資料 (QuotationGottenResult) 不可為 null");
 		}
@@ -59,8 +85,13 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 		Document document = new Document(PageSize.A4, 32f, 32f, 36f, 36f);
 		PdfWriter writer = PdfWriter.getInstance(document, outputStream);
 
-		// 掛載分頁與頁碼控制器 (第 X 頁 / 共 Y 頁)
+		// 掛載分頁與頁碼控制器 (第 X 頁 / 共 Y 頁) 及可選浮水印
 		OpenPdfPageEventHelper pageEventHelper = new OpenPdfPageEventHelper(fontProvider.getBaseFont());
+		if (watermarkText != null && !watermarkText.trim().isEmpty()) {
+			pageEventHelper.setWatermarkText(watermarkText.trim());
+			OpenPdfWatermarkStyle effectiveStyle = watermarkStyle != null ? watermarkStyle : getWatermarkStyle();
+			pageEventHelper.setWatermarkStyle(effectiveStyle);
+		}
 		writer.setPageEvent(pageEventHelper);
 
 		document.open();
@@ -83,7 +114,7 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 		renderBomAndFooterSections(document, writer, pageEventHelper, quotation);
 
 		document.close();
-		log.info("BOM 報價單 PDF 渲染成功: quotationNo={}", quotation.quotationNo());
+		log.info("BOM 報價單 PDF 渲染成功: quotationNo={}, watermark={}", quotation.quotationNo(), watermarkText);
 	}
 
 	/**

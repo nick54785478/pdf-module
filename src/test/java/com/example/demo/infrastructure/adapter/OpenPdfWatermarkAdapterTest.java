@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OpenPdfWatermarkAdapterTest {
 
 	@Autowired
-	private OpenPdfWatermarkAdapter openPdfWatermarkAdapter;
+	private OpenPdfWatermarkExecutorAdapter openPdfWatermarkAdapter;
 
 	@Autowired
 	private OpenQuotationPdfGeneratorAdapter openPdfQuotationAdapter;

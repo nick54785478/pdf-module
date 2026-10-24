@@ -64,12 +64,12 @@ src/main/java/com/example/demo/
 │   │   │   ├── AddWatermarkUseCase.java             # 通用 PDF 加蓋浮水印用例介面
 │   │   │   └── package-info.java
 │   │   └── out/                                     # 輸出端口 (Outbound Ports，結尾為 Port)
-│   │       ├── QuotationPdfGeneratorPort.java       # 報價單 PDF 產出業務輸出端口
+│   │       ├── QuotationPdfGeneratorPort.java       # 報價單 PDF 產出業務輸出端口 (支援生成時單次印製浮水印)
 │   │       ├── QuotationParserPort.java             # 報價單內容解析輸出端口
 │   │       ├── MockServicePort.java                 # 報價單模擬資料提供輸出端口
 │   │       ├── PdfExtractorPort.java                # PDF 抽取輸出端口 (基於 PDFBox)
 │   │       ├── ReportGeneratorPort.java             # 報表生成輸出端口 (業務語意)
-│   │       ├── PdfWatermarkPort.java                # PDF 浮水印蓋印輸出端口
+│   │       ├── PdfWatermarkExecutorPort.java        # PDF 通用浮水印蓋印輸出端口
 │   │       └── package-info.java
 │   ├── service/                                     # 應用服務 (實作 UseCase 介面，協調流程)
 │   │   └── QuotationApplicationService.java         # 報價單業務應用服務 (Inbound Adapter)
@@ -103,17 +103,18 @@ src/main/java/com/example/demo/
 │   │   │   ├── OpenPdfFontProvider.java             # 字體單例快取 (MSJHL.TTC) 與階層樣式提供者
 │   │   │   ├── OpenPdfStylePalette.java             # 企業排版調色盤與視覺幾何常數
 │   │   │   ├── OpenPdfCellFactory.java              # 儲存格與行排版工廠
-│   │   │   └── OpenPdfPageEventHelper.java          # 分頁與動態頁碼 (第 X 頁 / 共 Y 頁) 與浮水印事件
+│   │   │   ├── OpenPdfWatermarkStyle.java           # 浮水印視覺樣式配置值物件 (支援防偽鋼印與副標)
+│   │   │   └── OpenPdfPageEventHelper.java          # 分頁、動態頁碼與防偽鋼印浮水印事件
 │   │   └── template/                                # 【業務專屬範本】
-│   │       ├── PdfDocumentTemplate.java             # PDF 業務範本通用抽象契約介面
-│   │       └── BomQuotationPdfTemplate.java         # 物料清單 (BOM) 報價單專屬排版實作
+│   │       ├── PdfDocumentTemplate.java             # PDF 業務範本通用抽象契約介面 (提供 getWatermarkStyle Hook)
+│   │       └── BomQuotationPdfTemplate.java         # 物料清單 (BOM) 報價單專屬排版實作 (內建尊榮鋼印樣式)
 │   └── adapter/                                     # 出境適配器 (實作 Application 層 Outbound Port)
-│       ├── OpenQuotationPdfGeneratorAdapter.java    # 實作 QuotationPdfGeneratorPort 之 OpenPDF 適配器
+│       ├── OpenQuotationPdfGeneratorAdapter.java    # 實作 QuotationPdfGeneratorPort 之 OpenPDF 適配器 (生成時單次印製)
 │       ├── TextQuotationParserAdapter.java          # 實作 QuotationParserPort 之文字與語法剖析適配器
 │       ├── MockServiceAdapter.java                  # 實作 MockServicePort 之模擬範本資料適配器
 │       ├── PdfExtractorAdapter.java                 # 實作 PdfExtractorPort 之 Apache PDFBox 適配器
 │       ├── BirtReportAdapter.java                   # 實作 ReportGeneratorPort 之 Eclipse BIRT 適配器
-│       ├── OpenPdfWatermarkAdapter.java             # 實作 PdfWatermarkPort 之通用浮水印蓋印適配器
+│       ├── OpenPdfWatermarkExecutorAdapter.java     # 實作 PdfWatermarkExecutorPort 之通用浮水印蓋印適配器 (後製 Stamper)
 │       └── package-info.java
 │
 ├── presentation/                                    # 表現層 (Presentation Layer - Inbound Adapters)
@@ -210,8 +211,8 @@ src/test/java/com/example/demo/
 ### 三大技術體系與專案文檔
 
 1. **【OpenPDF 體系】程式化像素級高精確排版**
-   - 🏛️ [OpenPDF 報表與文件範本生成整體架構設計](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_architecture_design.md)：說明 Clean Architecture 六角分層、四項通用排版積木 (`FontProvider`, `StylePalette`, `CellFactory`, `PageEventHelper`)。
-   - 🛠️ [自定義業務單據範本開發實戰指南 (6 步驟)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/custom_openpdf_template_guide.md)：提供開發全新單據（出貨單、採購單等）之標準 6-Step 流程與排版積木套用範例。
+   - 🏛️ [OpenPDF 報表與文件範本生成整體架構設計](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_architecture_design.md)：說明 Clean Architecture 六角分層、五項通用排版積木 (`FontProvider`, `StylePalette`, `CellFactory`, `PageEventHelper`, `OpenPdfWatermarkStyle`)、**浮水印雙軌協同架構 (Dual-Track)** 與 **BOM 報價單專屬尊榮防偽雙線鋼印浮水印**。
+   - 🛠️ [自定義業務單據範本開發實戰指南 (6 步驟)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/custom_openpdf_template_guide.md)：提供開發全新單據（出貨單、採購單等）之標準 6-Step 流程、排版積木套用範例與範本專屬浮水印樣式 (`getWatermarkStyle()`) 覆寫。
    - 📐 [動態資料量智慧防孤兒區塊排版技術指南](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_anti_orphan_pagination_guide.md)：解析雙層防孤兒排版機制（結尾複合區塊防拆原子化 + 錨點明細牽引換頁演算法），保證任意資料量絕不出現孤兒簽章頁。
 
 2. **【Eclipse BIRT 體系】視覺化範本驅動報表引擎**
@@ -238,8 +239,8 @@ src/test/java/com/example/demo/
 | **5. Query** | `V + N + Query` | `GetQuotationQuery`, `GetPdfQuery` |
 | **6. Dto** | `N + Gotten/Searched + Result` | `QuotationGottenResult`, `QuotationItemGottenResult`, `PdfTextPositionGottenResult` |
 | **7. Projection** | `N + Gotten/Searched + View` | `PdfGottenView`, `PdfSearchedView` |
-| **8. Port** | In: `... + UseCase`<br>Out: `... + Port` | In: `GenerateQuotationPdfUseCase`, `GenerateTemplateQuotationPdfUseCase`, `ParseQuotationPdfUseCase`, `AddWatermarkUseCase`<br>Out: `QuotationPdfGeneratorPort`, `ReportGeneratorPort`, `QuotationParserPort`, `PdfExtractorPort`, `PdfWatermarkPort`, `MockServicePort` |
-| **9. Adapter** | In: `... + ApplicationService`<br>Out: `... + Adapter` | In: `QuotationApplicationService`<br>Out: `OpenQuotationPdfGeneratorAdapter`, `BirtReportAdapter`, `TextQuotationParserAdapter`, `PdfExtractorAdapter`, `OpenPdfWatermarkAdapter`, `MockServiceAdapter` |
+| **8. Port** | In: `... + UseCase`<br>Out: `... + Port` | In: `GenerateQuotationPdfUseCase`, `GenerateTemplateQuotationPdfUseCase`, `ParseQuotationPdfUseCase`, `AddWatermarkUseCase`<br>Out: `QuotationPdfGeneratorPort`, `ReportGeneratorPort`, `QuotationParserPort`, `PdfExtractorPort`, `PdfWatermarkExecutorPort`, `MockServicePort` |
+| **9. Adapter** | In: `... + ApplicationService`<br>Out: `... + Adapter` | In: `QuotationApplicationService`<br>Out: `OpenQuotationPdfGeneratorAdapter`, `BirtReportAdapter`, `TextQuotationParserAdapter`, `PdfExtractorAdapter`, `OpenPdfWatermarkExecutorAdapter`, `MockServiceAdapter` |
 
 ---
 
@@ -249,15 +250,15 @@ src/test/java/com/example/demo/
 
 | HTTP 方法 | URL 路徑 | 請求參數 / 請求體 | 功能說明 | 底層引擎 | 回傳格式 | 關鍵回應標頭 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/v1/quotations/openpdf` | `id` (可選)<br>`watermark` (可選)<br>`download` (可選，預設 `true`) | **程式化高精確排版**：使用 OpenPDF 產生雙層防孤兒排版之報價單 PDF，支援可選動態防偽浮水印 | `OpenPDF 2.0.4` | `application/pdf` | `X-Pdf-Engine: OpenPDF`<br>`Content-Disposition: attachment; filename="{id}_openpdf.pdf"` |
-| **GET** | `/api/v1/quotations/template`<br>*(同義別名 `/birt`)* | `id` (可選)<br>`watermark` (可選)<br>`download` (可選，預設 `true`) | **視覺化範本驅動排版**：使用 Eclipse BIRT 報表設計範本 (`.rptdesign`) 渲染標準報價單 PDF，支援可選動態防偽浮水印 | `Eclipse BIRT 4.20.0` | `application/pdf` | `X-Pdf-Engine: BIRT (Template)`<br>`Content-Disposition: attachment; filename="{id}_template.pdf"` |
-| **POST** | `/api/v1/quotations/watermark` | `multipart/form-data`<br>`file`: PDF 檔案 (二進位)<br>`watermark`: 浮水印文字 (必填)<br>`download` (可選，預設 `true`) | **通用 PDF 防偽浮水印蓋印**：上傳任意 PDF 檔案，由 OpenPDF 在每一頁中心疊加 45 度傾斜半透明防偽字樣 (微軟正黑體) | `OpenPDF 2.0.4` | `application/pdf` | `X-Pdf-Engine: OpenPDF (Watermark)`<br>`Content-Disposition: attachment; filename="{base}_watermarked.pdf"` |
+| **GET** | `/api/v1/quotations/openpdf` | `id` (可選)<br>`watermark` (可選)<br>`download` (可選，預設 `true`) | **程式化高精確排版**：使用 OpenPDF 產生雙層防孤兒排版之報價單 PDF，支援生成時單次印製專屬防偽雙線鋼印浮水印 | `OpenPDF 2.0.4` | `application/pdf` | `X-Pdf-Engine: OpenPDF`<br>`Content-Disposition: attachment; filename="{id}_openpdf.pdf"` |
+| **GET** | `/api/v1/quotations/template`<br>*(同義別名 `/birt`)* | `id` (可選)<br>`watermark` (可選)<br>`download` (可選，預設 `true`) | **視覺化範本驅動排版**：使用 Eclipse BIRT 報表設計範本 (`.rptdesign`) 渲染標準報價單 PDF，支援後製通用動態防偽浮水印 | `Eclipse BIRT 4.20.0` | `application/pdf` | `X-Pdf-Engine: BIRT (Template)`<br>`Content-Disposition: attachment; filename="{id}_template.pdf"` |
+| **POST** | `/api/v1/quotations/watermark` | `multipart/form-data`<br>`file`: PDF 檔案 (二進位)<br>`watermark`: 浮水印文字 (必填)<br>`download` (可選，預設 `true`) | **通用 PDF 防偽浮水印蓋印**：上傳任意 PDF 檔案，由 OpenPdfWatermarkExecutorAdapter 在每一頁中心疊加 45 度傾斜半透明防偽字樣 (微軟正黑體) | `OpenPDF 2.0.4` | `application/pdf` | `X-Pdf-Engine: OpenPDF (Watermark)`<br>`Content-Disposition: attachment; filename="{base}_watermarked.pdf"` |
 | **POST** | `/api/v1/quotations/parse` | `multipart/form-data`<br>`file`: PDF 檔案 (二進位) | **PDF 結構化逆向解析**：上傳 PDF，抽取純文字並透過正則狀態機剖析為結構化報價單 DTO | `Apache PDFBox 3.0.8` | `application/json` | `Content-Type: application/json`<br>(回傳 `QuotationParsedResource`) |
 
 > 📌 **回應標頭與下載機制說明**：
 > - `X-Pdf-Engine`：清楚標示底層渲染引擎為 `OpenPDF`、`BIRT (Template)` 或 `OpenPDF (Watermark)`。
 > - `Content-Disposition: attachment; filename="..."`：預設以附件方式回傳，Swagger UI 會自動呈現「Download file」按鈕以供下載檢視。若傳入 `download=false` 則以 `inline` 模式回傳，可在瀏覽器分頁直接預覽。
-> - `POST /api/v1/quotations/watermark`：防腐層設計，表現層接收 Spring `MultipartFile` 後封裝為領域無關的 `AddWatermarkCommand(byte[], watermarkText)`，調用 `AddWatermarkUseCase` 與 `PdfWatermarkPort`，絕不將框架物件傳入 Application Port。
+> - `POST /api/v1/quotations/watermark`：防腐層設計，表現層接收 Spring `MultipartFile` 後封裝為領域無關的 `AddWatermarkCommand(byte[], watermarkText)`，調用 `AddWatermarkUseCase` 與 `PdfWatermarkExecutorPort`，絕不將框架物件傳入 Application Port。
 > - `POST /api/v1/quotations/parse`：防腐層設計，表現層接收 Spring `MultipartFile` 後封裝為領域無關的 `ParseQuotationPdfCommand(byte[], fileName)`，絕不將框架物件傳入 Application Port。回傳 JSON 包含報價單號、客戶資訊、物料明細、小計稅額總計與交易條款。
 
 ### OpenAPI 3.0 與 Swagger UI 互動式文件

@@ -154,7 +154,30 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
     private final OpenPdfFontProvider fontProvider;
 
     @Override
+    public OpenPdfWatermarkStyle getWatermarkStyle() {
+        // 【自訂樣式 Hook】：定義出貨單專屬之防偽浮水印（若呼叫端只傳入文字，自動套用此樣式）
+        return OpenPdfWatermarkStyle.builder()
+                .fontSize(44f)
+                .color(OpenPdfStylePalette.ACCENT_BLUE)
+                .opacity(0.08f)
+                .rotation(45f)
+                .boxed(true)
+                .subText("OFFICIAL DELIVERY NOTE • MORNING STAR")
+                .build();
+    }
+
+    @Override
     public void render(DeliveryNoteGottenResult data, OutputStream outputStream) throws Exception {
+        render(data, outputStream, null, getWatermarkStyle());
+    }
+
+    @Override
+    public void render(DeliveryNoteGottenResult data, OutputStream outputStream, String watermarkText) throws Exception {
+        render(data, outputStream, watermarkText, getWatermarkStyle());
+    }
+
+    @Override
+    public void render(DeliveryNoteGottenResult data, OutputStream outputStream, String watermarkText, OpenPdfWatermarkStyle watermarkStyle) throws Exception {
         if (data == null || outputStream == null) {
             throw new IllegalArgumentException("資料與輸出串流不可為 null");
         }
@@ -163,8 +186,12 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
         Document document = new Document(PageSize.A4, 32f, 32f, 36f, 36f);
         PdfWriter writer = PdfWriter.getInstance(document, outputStream);
 
-        // 2. 掛載跨頁動態頁碼控制器 (「第 X 頁 / 共 Y 頁」)
+        // 2. 掛載跨頁動態頁碼與浮水印控制器
         OpenPdfPageEventHelper pageEventHelper = new OpenPdfPageEventHelper(fontProvider.getBaseFont());
+        if (watermarkText != null && !watermarkText.trim().isEmpty()) {
+            pageEventHelper.setWatermarkText(watermarkText.trim());
+            pageEventHelper.setWatermarkStyle(watermarkStyle != null ? watermarkStyle : getWatermarkStyle());
+        }
         writer.setPageEvent(pageEventHelper);
 
         document.open();
@@ -178,7 +205,7 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
         renderFooterSignatures(document);
 
         document.close();
-        log.info("出貨單 PDF 渲染完成: deliveryNo={}", data.deliveryNo());
+        log.info("出貨單 PDF 渲染完成: deliveryNo={}, watermark={}", data.deliveryNo(), watermarkText);
     }
 
     /** 區塊 A: 公司標頭與單號 */

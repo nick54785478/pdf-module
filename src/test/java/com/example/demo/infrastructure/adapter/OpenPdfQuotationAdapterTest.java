@@ -37,6 +37,9 @@ class OpenPdfQuotationAdapterTest {
 	@Autowired
 	private OpenQuotationPdfGeneratorAdapter openPdfQuotationAdapter;
 
+	@Autowired
+	private com.example.demo.infrastructure.openpdf.template.BomQuotationPdfTemplate bomQuotationPdfTemplate;
+
 	/**
 	 * Feature: OpenPDF 報價單 PDF 生成
 	 * Scenario: 正常流程 - 輸入完整 8 筆物料清單明細，產出高精確度排版之 PDF 二進位檔
@@ -324,6 +327,64 @@ class OpenPdfQuotationAdapterTest {
 			// 3. 最後一頁必須包含結尾區塊
 			assertTrue(lastPageText.contains("總計金額"), "最後一頁必須包含總計金額");
 			assertTrue(lastPageText.contains("客戶確認簽回欄"), "最後一頁必須包含客戶簽核用印");
+		}
+	}
+
+	/**
+	 * Feature: OpenPDF 報價單原生浮水印生成 (In-flight Single-pass Watermarking)
+	 * Scenario: 正常流程 - 傳入報價單與浮水印文字，在文件生成時一次性完成半透明浮水印繪製
+	 *
+	 * Given: 包含物料明細之 QuotationGottenResult 與浮水印文字 "內部機密"
+	 * When: 調用 OpenPdfQuotationAdapter.generateQuotationPdf(quotation, "內部機密")
+	 * Then: 成功獲得合法 PDF 二進位 byte[]，解析後文字包含 "內部機密"
+	 */
+	@Test
+	@DisplayName("產出報價單PDF-原生生成浮水印-單次渲染成功包含浮水印文字")
+	void generateQuotationPdf_withNativeWatermark_success() throws IOException {
+		// Given
+		QuotationGottenResult quotation = createCompleteBomQuotation("QT-WM-NATIVE-001");
+
+		// When
+		byte[] pdfBytes = openPdfQuotationAdapter.generateQuotationPdf(quotation, "內部機密");
+
+		// Then
+		assertNotNull(pdfBytes, "產出的 PDF 位元組陣列不得為空");
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			PDFTextStripper stripper = new PDFTextStripper();
+			String text = stripper.getText(document);
+			String normalized = text.replaceAll("\\s+", "");
+			assertTrue(normalized.contains("內部機密"), "PDF 內文應包含原生印製之浮水印文字 (內部機密)");
+			assertTrue(normalized.contains("BOMQUOTATION"), "PDF 內文應包含 BOM 報價單專屬之防偽鋼印副標 (BOM QUOTATION)");
+		}
+	}
+
+	/**
+	 * Feature: OpenPDF 範本浮水印樣式自訂 (Template Watermark Style Customization)
+	 * Scenario: 正常流程 - 呼叫端只需傳入文字即可自動套用範本 getWatermarkStyle()；亦支援傳入自訂 OpenPdfWatermarkStyle
+	 *
+	 * Given: 包含物料明細之 QuotationGottenResult 與自訂樣式 OpenPdfWatermarkStyle.CONFIDENTIAL
+	 * When: 調用 bomQuotationPdfTemplate.render(quotation, baos, "機密草稿", OpenPdfWatermarkStyle.CONFIDENTIAL)
+	 * Then: 成功輸出合法 PDF，且文字包含浮水印 "機密草稿"
+	 */
+	@Test
+	@DisplayName("PdfDocumentTemplate-浮水印樣式自訂-支援範本預設與自訂WatermarkStyle渲染")
+	void render_withCustomWatermarkStyle_success() throws Exception {
+		// Given
+		QuotationGottenResult quotation = createCompleteBomQuotation("QT-WM-STYLE-001");
+		java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+
+		// When: 傳入自訂樣式 (亦可只傳文字自動套用範本 getWatermarkStyle)
+		bomQuotationPdfTemplate.render(quotation, baos, "機密草稿", com.example.demo.infrastructure.openpdf.core.OpenPdfWatermarkStyle.CONFIDENTIAL);
+		byte[] pdfBytes = baos.toByteArray();
+
+		// Then
+		assertNotNull(pdfBytes);
+		assertTrue(pdfBytes.length > 5000);
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			PDFTextStripper stripper = new PDFTextStripper();
+			String text = stripper.getText(document);
+			String normalized = text.replaceAll("\\s+", "");
+			assertTrue(normalized.contains("機密草稿"), "PDF 內文應包含機密樣式之浮水印文字 (機密草稿)");
 		}
 	}
 
