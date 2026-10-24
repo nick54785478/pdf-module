@@ -1,5 +1,6 @@
 package com.example.demo.presentation.assembler;
 
+import com.example.demo.application.shared.command.AddWatermarkCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.dto.QuotationItemGottenResult;
 import com.example.demo.application.shared.query.GetQuotationQuery;
@@ -9,7 +10,9 @@ import com.example.demo.presentation.resource.in.QuotationItemResource;
 import com.example.demo.presentation.resource.out.QuotationItemParsedResource;
 import com.example.demo.presentation.resource.out.QuotationParsedResource;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -31,12 +34,28 @@ public class QuotationResourceAssembler {
 	/**
 	 * 將取得報價單 PDF 請求載體轉換為應用層 Query 物件
 	 *
-	 * @param resource 請求資料載體 (包含 ID)
+	 * @param resource 請求資料載體 (包含 ID 與浮水印文字)
 	 * @return 應用層 GetQuotationQuery 查詢物件
 	 */
 	public GetQuotationQuery toQuery(GetQuotationPdfResource resource) {
 		String id = (resource != null) ? resource.id() : null;
-		return new GetQuotationQuery(id);
+		String watermark = (resource != null) ? resource.watermark() : null;
+		return new GetQuotationQuery(id, watermark);
+	}
+
+	/**
+	 * 將上傳之 PDF 檔案與浮水印文字轉換為應用層 AddWatermarkCommand
+	 *
+	 * @param file          表現層 MultipartFile 二進位檔案
+	 * @param watermarkText 欲蓋印之浮水印文字
+	 * @return 應用層 AddWatermarkCommand 命令物件
+	 * @throws IOException 檔案讀取失敗例外
+	 */
+	public AddWatermarkCommand toWatermarkCommand(MultipartFile file, String watermarkText) throws IOException {
+		if (file == null || file.isEmpty()) {
+			throw new IllegalArgumentException("上傳之 PDF 檔案不可為空");
+		}
+		return new AddWatermarkCommand(file.getBytes(), watermarkText);
 	}
 
 	/**

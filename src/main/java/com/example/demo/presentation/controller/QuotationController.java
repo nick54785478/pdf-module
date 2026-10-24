@@ -1,8 +1,10 @@
 package com.example.demo.presentation.controller;
 
+import com.example.demo.application.port.in.AddWatermarkUseCase;
 import com.example.demo.application.port.in.GenerateQuotationPdfUseCase;
 import com.example.demo.application.port.in.GenerateTemplateQuotationPdfUseCase;
 import com.example.demo.application.port.in.ParseQuotationPdfUseCase;
+import com.example.demo.application.shared.command.AddWatermarkCommand;
 import com.example.demo.application.shared.command.ParseQuotationPdfCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.query.GetQuotationQuery;
@@ -18,6 +20,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +50,7 @@ import java.nio.charset.StandardCharsets;
  * 遵循六角形架構與防腐層規範。
  * </p>
  */
-@Tag(name = "報價單 PDF 生成與解析 API", description = "提供基於 OpenPDF (2.0.4) 與 BIRT 報表範本之報價單 PDF 生成下載，以及基於 Apache PDFBox (3.0.8) 之 PDF 上傳內容抽取與欄位解析服務")
+@Tag(name = "報價單 PDF 生成、加蓋浮水印與解析 API", description = "提供基於 OpenPDF (2.0.4) 與 BIRT 報表範本之報價單 PDF 生成下載、PDF 防偽浮水印蓋印，以及基於 Apache PDFBox (3.0.8) 之 PDF 上傳內容抽取與欄位解析服務")
 @Slf4j
 @Validated
 @RestController
@@ -58,11 +61,13 @@ public class QuotationController {
 	/** 標註底層使用的 PDF 渲染引擎 */
 	public static final String PDF_ENGINE_OPENPDF = "OpenPDF";
 	public static final String PDF_ENGINE_TEMPLATE = "BIRT (Template)";
+	public static final String PDF_ENGINE_WATERMARK = "OpenPDF (Watermark)";
 	public static final String HEADER_PDF_ENGINE = "X-Pdf-Engine";
 
 	private final GenerateQuotationPdfUseCase generateQuotationPdfUseCase;
 	private final GenerateTemplateQuotationPdfUseCase generateTemplateQuotationPdfUseCase;
 	private final ParseQuotationPdfUseCase parseQuotationPdfUseCase;
+	private final AddWatermarkUseCase addWatermarkUseCase;
 	private final QuotationResourceAssembler quotationResourceAssembler;
 
 	/**
@@ -134,6 +139,15 @@ public class QuotationController {
 			String id,
 
 			@Parameter(
+					name = "watermark",
+					description = "可選的防偽浮水印文字 (例如：機密草稿、正式報價、內部審閱)",
+					example = "機密草稿"
+			)
+			@RequestParam(name = "watermark", required = false)
+			@Size(max = 30, message = "浮水印文字長度不可超過 30 個字元")
+			String watermark,
+
+			@Parameter(
 					name = "download",
 					description = "是否以附件方式下載檔案 (預設為 true，回傳 attachment 標頭並於 Swagger UI 呈現「Download file」按鈕；若為 false 則為 inline 預覽)",
 					example = "true"
@@ -141,10 +155,10 @@ public class QuotationController {
 			@RequestParam(name = "download", required = false, defaultValue = "true")
 			boolean download) {
 
-		log.info("【API】收到取得報價單 PDF 請求: id={}, download={}, [引擎: {}]", id, download, PDF_ENGINE_OPENPDF);
+		log.info("【API】收到取得報價單 PDF 請求: id={}, watermark={}, download={}, [引擎: {}]", id, watermark, download, PDF_ENGINE_OPENPDF);
 
 		// 1. 封裝表現層 Request Data
-		GetQuotationPdfResource resource = new GetQuotationPdfResource(id);
+		GetQuotationPdfResource resource = new GetQuotationPdfResource(id, watermark);
 
 		// 2. 防腐層組裝為應用層 Query
 		GetQuotationQuery query = quotationResourceAssembler.toQuery(resource);
@@ -231,6 +245,15 @@ public class QuotationController {
 			String id,
 
 			@Parameter(
+					name = "watermark",
+					description = "可選的防偽浮水印文字 (例如：機密草稿、正式報價、內部審閱)",
+					example = "機密草稿"
+			)
+			@RequestParam(name = "watermark", required = false)
+			@Size(max = 30, message = "浮水印文字長度不可超過 30 個字元")
+			String watermark,
+
+			@Parameter(
 					name = "download",
 					description = "是否以附件方式下載檔案 (預設為 true，回傳 attachment 標頭並於 Swagger UI 呈現「Download file」按鈕；若為 false 則為 inline 預覽)",
 					example = "true"
@@ -238,10 +261,10 @@ public class QuotationController {
 			@RequestParam(name = "download", required = false, defaultValue = "true")
 			boolean download) {
 
-		log.info("【API】收到取得報價單 PDF 請求 (使用範本): id={}, download={}, [引擎: {}]", id, download, PDF_ENGINE_TEMPLATE);
+		log.info("【API】收到取得報價單 PDF 請求 (使用範本): id={}, watermark={}, download={}, [引擎: {}]", id, watermark, download, PDF_ENGINE_TEMPLATE);
 
 		// 1. 封裝表現層 Request Data
-		GetQuotationPdfResource resource = new GetQuotationPdfResource(id);
+		GetQuotationPdfResource resource = new GetQuotationPdfResource(id, watermark);
 
 		// 2. 防腐層組裝為應用層 Query
 		GetQuotationQuery query = quotationResourceAssembler.toQuery(resource);
@@ -328,6 +351,115 @@ public class QuotationController {
 
 		log.info("【API】報價單 PDF 解析成功並回傳前端: quotationNo={}, 客戶={}", response.quotationNo(), response.customerName());
 		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * 為上傳之 PDF 檔案加蓋防偽浮水印
+	 * <p>
+	 * 供客戶端上傳任意 PDF 檔案並指定浮水印文字，調用 {@link AddWatermarkUseCase} 用例，
+	 * 透過 {@code PdfWatermarkPort} (OpenPdfWatermarkAdapter) 於每一頁中央繪製 45 度傾斜半透明防偽字樣，
+	 * 支援微軟正黑體中文字型與任意紙張尺寸/旋轉角度，回傳加蓋完成之 PDF 二進位位元組串流。
+	 * </p>
+	 *
+	 * @param file      欲加蓋浮水印之 PDF 檔案 (MultipartFile，不可為空)
+	 * @param watermark 欲印製之浮水印文字 (例如：機密、草稿、作廢等，長度限 30 字元)
+	 * @param download  是否以附件方式下載檔案 (預設為 true)
+	 * @return 加蓋浮水印後之 PDF 二進位串流
+	 * @throws IOException 檔案讀取失敗時拋出
+	 */
+	@Operation(
+			summary = "為上傳之 PDF 檔案加蓋防偽浮水印",
+			description = "提供通用 PDF 浮水印蓋印能力：客戶端上傳任何 PDF 檔案並指定浮水印文字，"
+					+ "由 OpenPdfWatermarkAdapter 為每一頁中央繪製 45 度傾斜、半透明 (Opacity 0.12) 之防偽文字，"
+					+ "回傳加工完成之 PDF 檔案串流，並標註 X-Pdf-Engine: OpenPDF (Watermark)。"
+	)
+	@ApiResponses(value = {
+			@ApiResponse(
+					responseCode = "200",
+					description = "成功為 PDF 加蓋浮水印並回傳檔案串流",
+					content = @Content(
+							mediaType = MediaType.APPLICATION_PDF_VALUE,
+							schema = @Schema(type = "string", format = "binary", description = "PDF 檔案二進位位元組陣列")
+					),
+					headers = {
+							@Header(
+									name = "Content-Disposition",
+									description = "指示瀏覽器下載檔案與檔名",
+									schema = @Schema(type = "string")
+							),
+							@Header(
+									name = "X-Pdf-Engine",
+									description = "底層使用的渲染引擎名稱 (固定為 OpenPDF (Watermark))",
+									schema = @Schema(type = "string")
+							)
+					}
+			),
+			@ApiResponse(
+					responseCode = "400",
+					description = "上傳檔案為空或浮水印文字未填",
+					content = @Content(
+							mediaType = MediaType.APPLICATION_JSON_VALUE,
+							schema = @Schema(implementation = ErrorOccurredResource.class)
+					)
+			),
+			@ApiResponse(
+					responseCode = "500",
+					description = "伺服器內部錯誤或浮水印蓋印失敗",
+					content = @Content(
+							mediaType = MediaType.APPLICATION_JSON_VALUE,
+							schema = @Schema(implementation = ErrorOccurredResource.class)
+					)
+			)
+	})
+	@PostMapping(value = "/watermark", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	public ResponseEntity<byte[]> addWatermark(
+			@Parameter(
+					description = "欲加蓋浮水印之 PDF 檔案",
+					required = true,
+					content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE)
+			)
+			@RequestParam("file") MultipartFile file,
+
+			@Parameter(
+					description = "欲印製之浮水印文字 (例如：機密、草稿、正式報價、作廢等)",
+					example = "機密草稿",
+					required = true
+			)
+			@RequestParam("watermark")
+			@NotBlank(message = "浮水印文字不可為空")
+			@Size(max = 30, message = "浮水印文字長度不可超過 30 個字元")
+			String watermark,
+
+			@Parameter(
+					name = "download",
+					description = "是否以附件方式下載檔案 (預設為 true，回傳 attachment 標頭並於 Swagger UI 呈現「Download file」按鈕；若為 false 則為 inline 預覽)",
+					example = "true"
+			)
+			@RequestParam(name = "download", required = false, defaultValue = "true")
+			boolean download) throws IOException {
+
+		if (file == null || file.isEmpty()) {
+			log.warn("加蓋浮水印失敗：上傳之 PDF 檔案為空");
+			return ResponseEntity.badRequest().build();
+		}
+
+		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";
+		log.info("【API】收到上傳加蓋浮水印請求: fileName={}, watermark={}, byteSize={}",
+				originalFilename, watermark, file.getSize());
+
+		// 1. 封裝應用層 Command (防腐層：傳入 byte[]，嚴禁將 Spring MultipartFile 傳入 Port)
+		AddWatermarkCommand command = quotationResourceAssembler.toWatermarkCommand(file, watermark);
+
+		// 2. 調用 UseCase 執行浮水印蓋印
+		byte[] watermarkedPdf = addWatermarkUseCase.addWatermark(command);
+
+		String baseName = originalFilename.toLowerCase().endsWith(".pdf")
+				? originalFilename.substring(0, originalFilename.length() - 4)
+				: originalFilename;
+		String downloadFileName = baseName + "_watermarked.pdf";
+
+		log.info("【API】PDF 浮水印蓋印成功: downloadFileName={}, outputSize={}", downloadFileName, watermarkedPdf.length);
+		return buildPdfResponse(watermarkedPdf, downloadFileName, download, PDF_ENGINE_WATERMARK);
 	}
 
 	/**

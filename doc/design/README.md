@@ -47,23 +47,26 @@ doc/design/
 ```mermaid
 flowchart TD
     subgraph Presentation ["Presentation Layer (表現層)"]
-        Controller["QuotationController<br/>/openpdf | /template (/birt) | /parse"]
+        Controller["QuotationController<br/>/openpdf | /template (/birt) | /watermark | /parse"]
     end
 
     subgraph Application ["Application Layer (應用層)"]
         InPort1["GenerateQuotationPdfUseCase"]
         InPort2["GenerateTemplateQuotationPdfUseCase"]
         InPort3["ParseQuotationPdfUseCase"]
+        InPort4["AddWatermarkUseCase"]
         AppService["QuotationApplicationService"]
         OutPort1["QuotationPdfGeneratorPort"]
         OutPort2["ReportGeneratorPort"]
         OutPort3["PdfExtractorPort"]
         OutPort4["QuotationParserPort"]
+        OutPort5["PdfWatermarkPort"]
     end
 
     subgraph Infrastructure ["Infrastructure Layer (基礎設施層)"]
         subgraph OpenPDF_Subsystem ["OpenPDF 子系統"]
             Adapter1["OpenQuotationPdfGeneratorAdapter"]
+            Adapter5["OpenPdfWatermarkAdapter (通用浮水印蓋印)"]
             Template1["BomQuotationPdfTemplate<br/>(雙層防孤兒排版)"]
             Core1["OpenPdfPageEventHelper<br/>OpenPdfCellFactory<br/>OpenPdfFontProvider"]
         end
@@ -79,10 +82,11 @@ flowchart TD
         end
     end
 
-    Controller --> InPort1 & InPort2 & InPort3
-    InPort1 & InPort2 & InPort3 --> AppService
-    AppService --> OutPort1 & OutPort2 & OutPort3 & OutPort4
+    Controller --> InPort1 & InPort2 & InPort3 & InPort4
+    InPort1 & InPort2 & InPort3 & InPort4 --> AppService
+    AppService --> OutPort1 & OutPort2 & OutPort3 & OutPort4 & OutPort5
     OutPort1 --> Adapter1 --> Template1 --> Core1
+    OutPort5 --> Adapter5 --> Core1
     OutPort2 --> Adapter2 --> RptFile
     OutPort3 --> Adapter3
     OutPort4 --> Adapter4

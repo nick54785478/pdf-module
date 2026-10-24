@@ -6,6 +6,8 @@ import com.example.demo.application.port.out.PdfExtractorPort;
 import com.example.demo.application.port.out.QuotationParserPort;
 import com.example.demo.application.port.out.QuotationPdfGeneratorPort;
 import com.example.demo.application.port.out.ReportGeneratorPort;
+import com.example.demo.application.port.out.PdfWatermarkPort;
+import com.example.demo.application.shared.command.AddWatermarkCommand;
 import com.example.demo.application.shared.command.ParseQuotationPdfCommand;
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.dto.QuotationItemGottenResult;
@@ -63,6 +65,9 @@ class QuotationApplicationServiceTest {
 
 	@Mock
 	private QuotationParserPort quotationParserPort;
+
+	@Mock
+	private PdfWatermarkPort pdfWatermarkPort;
 
 	@InjectMocks
 	private QuotationApplicationService quotationApplicationService;
@@ -249,6 +254,111 @@ class QuotationApplicationServiceTest {
 
 		// When & Then
 		assertThrows(IllegalStateException.class, () -> quotationApplicationService.parseQuotationPdf(command));
+	}
+
+	/**
+	 * Feature: 加蓋 PDF 浮水印功能 (AddWatermarkUseCase)
+	 * Scenario: 正常流程 - 接收 AddWatermarkCommand 並調用 PdfWatermarkPort 完成蓋印
+	 *
+	 * Given: 包含原始 PDF 位元組與浮水印文字 "機密草稿" 的 AddWatermarkCommand
+	 * When: 調用 QuotationApplicationService.addWatermark(command)
+	 * Then: 成功調用 PdfWatermarkPort.stampWatermark 並回傳蓋印後之位元組陣列
+	 */
+	@Test
+	@DisplayName("加蓋PDF浮水印-正常情境-成功調用PdfWatermarkPort")
+	void addWatermark_success() {
+		// Given
+		byte[] sourceBytes = "%PDF-1.4 raw document".getBytes();
+		byte[] stampedBytes = "%PDF-1.4 watermarked document".getBytes();
+		AddWatermarkCommand command = new AddWatermarkCommand(sourceBytes, "機密草稿");
+
+		when(pdfWatermarkPort.stampWatermark(sourceBytes, "機密草稿")).thenReturn(stampedBytes);
+
+		// When
+		byte[] result = quotationApplicationService.addWatermark(command);
+
+		// Then
+		assertNotNull(result);
+		assertArrayEquals(stampedBytes, result);
+		verify(pdfWatermarkPort, times(1)).stampWatermark(sourceBytes, "機密草稿");
+	}
+
+	/**
+	 * Feature: 加蓋 PDF 浮水印功能 (AddWatermarkUseCase)
+	 * Scenario: 異常分支 - 傳入空命令或空檔案位元組拋出 IllegalArgumentException
+	 *
+	 * Given: command 為 null 或 fileBytes 為空
+	 * When: 調用 QuotationApplicationService.addWatermark
+	 * Then: 拋出 IllegalArgumentException
+	 */
+	@Test
+	@DisplayName("加蓋PDF浮水印-異常情境-傳入空命令或空檔案拋出例外")
+	void addWatermark_emptyCommand_throwsException() {
+		assertThrows(IllegalArgumentException.class, () -> quotationApplicationService.addWatermark(null));
+		assertThrows(IllegalArgumentException.class, () -> quotationApplicationService.addWatermark(new AddWatermarkCommand(null, "TEST")));
+		assertThrows(IllegalArgumentException.class, () -> quotationApplicationService.addWatermark(new AddWatermarkCommand(new byte[0], "TEST")));
+	}
+
+	/**
+	 * Feature: 產出 OpenPDF 報價單並動態加蓋浮水印
+	 * Scenario: 正常流程 - Query 含有浮水印文字時，產出 PDF 後調用 PdfWatermarkPort 蓋印
+	 *
+	 * Given: 包含 ID 與 watermarkText="正式報價" 之 GetQuotationQuery
+	 * When: 調用 QuotationApplicationService.generateQuotationPdf(query)
+	 * Then: 驗證先由 quotationPdfPort 產出，再由 pdfWatermarkPort 進行浮水印蓋印
+	 */
+	@Test
+	@DisplayName("OpenPDF報價單生成-包含浮水印-成功串接PdfWatermarkPort蓋印")
+	void generateQuotationPdf_withWatermark_success() {
+		// Given
+		GetQuotationQuery query = new GetQuotationQuery("QT-2026-WM", "正式報價");
+		QuotationGottenResult quotation = createSampleQuotation("QT-2026-WM");
+		byte[] rawPdf = "%PDF-1.4 OpenPDF raw".getBytes();
+		byte[] watermarkedPdf = "%PDF-1.4 OpenPDF watermarked".getBytes();
+
+		when(mockServicePort.getQuotation(query)).thenReturn(quotation);
+		when(quotationPdfPort.generateQuotationPdf(quotation)).thenReturn(rawPdf);
+		when(pdfWatermarkPort.stampWatermark(rawPdf, "正式報價")).thenReturn(watermarkedPdf);
+
+		// When
+		byte[] result = quotationApplicationService.generateQuotationPdf(query);
+
+		// Then
+		assertNotNull(result);
+		assertArrayEquals(watermarkedPdf, result);
+		verify(pdfWatermarkPort, times(1)).stampWatermark(rawPdf, "正式報價");
+	}
+
+	/**
+	 * Feature: 產出 BIRT 範本報價單並動態加蓋浮水印
+	 * Scenario: 正常流程 - Query 含有浮水印文字時，產出 BIRT 報表後調用 PdfWatermarkPort 蓋印
+	 *
+	 * Given: 包含 ID 與 watermarkText="機密草稿" 之 GetQuotationQuery
+	 * When: 調用 QuotationApplicationService.generateTemplateQuotationPdf(query)
+	 * Then: 驗證先由 reportGeneratorPort 產出，再由 pdfWatermarkPort 進行浮水印蓋印
+	 */
+	@Test
+	@DisplayName("BIRT報表生成-包含浮水印-成功串接PdfWatermarkPort蓋印")
+	void generateTemplateQuotationPdf_withWatermark_success() {
+		// Given
+		GetQuotationQuery query = new GetQuotationQuery("QT-2026-BIRT-WM", "機密草稿");
+		QuotationGottenResult quotation = createSampleQuotation("QT-2026-BIRT-WM");
+		byte[] rawPdf = "%PDF-1.5 BIRT raw".getBytes();
+		byte[] watermarkedPdf = "%PDF-1.5 BIRT watermarked".getBytes();
+
+		when(mockServicePort.getQuotation(query)).thenReturn(quotation);
+		when(quotationReportAssembler.toParameters(quotation)).thenReturn(new HashMap<>());
+		when(quotationReportAssembler.toDataContext(quotation)).thenReturn(new HashMap<>());
+		when(reportGeneratorPort.generatePdfReport(any(), any(), any(), any())).thenReturn(rawPdf);
+		when(pdfWatermarkPort.stampWatermark(rawPdf, "機密草稿")).thenReturn(watermarkedPdf);
+
+		// When
+		byte[] result = quotationApplicationService.generateTemplateQuotationPdf(query);
+
+		// Then
+		assertNotNull(result);
+		assertArrayEquals(watermarkedPdf, result);
+		verify(pdfWatermarkPort, times(1)).stampWatermark(rawPdf, "機密草稿");
 	}
 
 	private QuotationGottenResult createSampleQuotation(String quotationNo) {

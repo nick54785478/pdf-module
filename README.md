@@ -61,6 +61,7 @@ src/main/java/com/example/demo/
 │   │   │   ├── GenerateQuotationPdfUseCase.java     # 產出報價單 PDF 用例介面 (OpenPDF 程式化)
 │   │   │   ├── GenerateTemplateQuotationPdfUseCase.java # 產出報價單 PDF 用例介面 (BIRT 範本驅動)
 │   │   │   ├── ParseQuotationPdfUseCase.java        # 解析報價單 PDF 用例介面 (PDFBox 逆向解析)
+│   │   │   ├── AddWatermarkUseCase.java             # 通用 PDF 加蓋浮水印用例介面
 │   │   │   └── package-info.java
 │   │   └── out/                                     # 輸出端口 (Outbound Ports，結尾為 Port)
 │   │       ├── QuotationPdfGeneratorPort.java       # 報價單 PDF 產出業務輸出端口
@@ -68,15 +69,17 @@ src/main/java/com/example/demo/
 │   │       ├── MockServicePort.java                 # 報價單模擬資料提供輸出端口
 │   │       ├── PdfExtractorPort.java                # PDF 抽取輸出端口 (基於 PDFBox)
 │   │       ├── ReportGeneratorPort.java             # 報表生成輸出端口 (業務語意)
+│   │       ├── PdfWatermarkPort.java                # PDF 浮水印蓋印輸出端口
 │   │       └── package-info.java
 │   ├── service/                                     # 應用服務 (實作 UseCase 介面，協調流程)
 │   │   └── QuotationApplicationService.java         # 報價單業務應用服務 (Inbound Adapter)
 │   ├── shared/                                      # 跨業務共用資料模型與載體 (Shared Components)
 │   │   ├── command/                                 # 業務命令物件 (V + N + Command)
 │   │   │   ├── ParseQuotationPdfCommand.java        # 上傳並解析報價單 PDF 命令
+│   │   │   ├── AddWatermarkCommand.java             # 上傳並加蓋浮水印 PDF 命令
 │   │   │   └── package-info.java
 │   │   ├── query/                                   # 業務查詢物件 (V + N + Query)
-│   │   │   ├── GetQuotationQuery.java               # 取得報價單查詢物件 (包含 ID)
+│   │   │   ├── GetQuotationQuery.java               # 取得報價單查詢物件 (包含 ID 與浮水印)
 │   │   │   └── package-info.java
 │   │   ├── dto/                                     # 查詢資料傳輸物件 (純資料載體，禁止包含轉換邏輯)
 │   │   │   ├── QuotationGottenResult.java           # 報價單完整資訊資料載體
@@ -110,6 +113,7 @@ src/main/java/com/example/demo/
 │       ├── MockServiceAdapter.java                  # 實作 MockServicePort 之模擬範本資料適配器
 │       ├── PdfExtractorAdapter.java                 # 實作 PdfExtractorPort 之 Apache PDFBox 適配器
 │       ├── BirtReportAdapter.java                   # 實作 ReportGeneratorPort 之 Eclipse BIRT 適配器
+│       ├── OpenPdfWatermarkAdapter.java             # 實作 PdfWatermarkPort 之通用浮水印蓋印適配器
 │       └── package-info.java
 │
 ├── presentation/                                    # 表現層 (Presentation Layer - Inbound Adapters)
@@ -230,28 +234,30 @@ src/test/java/com/example/demo/
 | **1. Request** | `V + N + Resource` | `GetQuotationPdfResource`, `GenerateQuotationPdfResource` |
 | **2. Response** | `N + Ved + Resource` | `QuotationParsedResource`, `QuotationItemParsedResource`, `ErrorOccurredResource` |
 | **3. Event** | `N + Ved + Event` | `PdfGeneratedEvent`, `PdfProcessedEvent` |
-| **4. Command** | `V + N + Command` | `ParseQuotationPdfCommand`, `GeneratePdfCommand`, `MergePdfCommand` |
+| **4. Command** | `V + N + Command` | `ParseQuotationPdfCommand`, `AddWatermarkCommand`, `GeneratePdfCommand` |
 | **5. Query** | `V + N + Query` | `GetQuotationQuery`, `GetPdfQuery` |
 | **6. Dto** | `N + Gotten/Searched + Result` | `QuotationGottenResult`, `QuotationItemGottenResult`, `PdfTextPositionGottenResult` |
 | **7. Projection** | `N + Gotten/Searched + View` | `PdfGottenView`, `PdfSearchedView` |
-| **8. Port** | In: `... + UseCase`<br>Out: `... + Port` | In: `GenerateQuotationPdfUseCase`, `GenerateTemplateQuotationPdfUseCase`, `ParseQuotationPdfUseCase`<br>Out: `QuotationPdfGeneratorPort`, `ReportGeneratorPort`, `QuotationParserPort`, `PdfExtractorPort`, `MockServicePort` |
-| **9. Adapter** | In: `... + ApplicationService`<br>Out: `... + Adapter` | In: `QuotationApplicationService`<br>Out: `OpenQuotationPdfGeneratorAdapter`, `BirtReportAdapter`, `TextQuotationParserAdapter`, `PdfExtractorAdapter`, `MockServiceAdapter` |
+| **8. Port** | In: `... + UseCase`<br>Out: `... + Port` | In: `GenerateQuotationPdfUseCase`, `GenerateTemplateQuotationPdfUseCase`, `ParseQuotationPdfUseCase`, `AddWatermarkUseCase`<br>Out: `QuotationPdfGeneratorPort`, `ReportGeneratorPort`, `QuotationParserPort`, `PdfExtractorPort`, `PdfWatermarkPort`, `MockServicePort` |
+| **9. Adapter** | In: `... + ApplicationService`<br>Out: `... + Adapter` | In: `QuotationApplicationService`<br>Out: `OpenQuotationPdfGeneratorAdapter`, `BirtReportAdapter`, `TextQuotationParserAdapter`, `PdfExtractorAdapter`, `OpenPdfWatermarkAdapter`, `MockServiceAdapter` |
 
 ---
 
-## REST API 端點說明 (報價單生成與解析)
+## REST API 端點說明 (報價單生成、加蓋浮水印與解析)
 
-本模組提供程式化生成、範本驅動生成與結構化上傳解析三大核心能力：
+本模組提供程式化生成、範本驅動生成、結構化上傳解析與通用防偽浮水印蓋印四大核心能力：
 
 | HTTP 方法 | URL 路徑 | 請求參數 / 請求體 | 功能說明 | 底層引擎 | 回傳格式 | 關鍵回應標頭 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/api/v1/quotations/openpdf` | `id` (可選)<br>`download` (可選，預設 `true`) | **程式化高精確排版**：使用 OpenPDF 產生雙層防孤兒排版之報價單 PDF | `OpenPDF 3.0.5` | `application/pdf` | `X-Pdf-Engine: OpenPDF`<br>`Content-Disposition: attachment; filename="{id}_openpdf.pdf"` |
-| **GET** | `/api/v1/quotations/template`<br>*(同義別名 `/birt`)* | `id` (可選)<br>`download` (可選，預設 `true`) | **視覺化範本驅動排版**：使用 Eclipse BIRT 報表設計範本 (`.rptdesign`) 渲染標準報價單 PDF | `Eclipse BIRT 4.20.0` | `application/pdf` | `X-Pdf-Engine: BIRT (Template)`<br>`Content-Disposition: attachment; filename="{id}_template.pdf"` |
+| **GET** | `/api/v1/quotations/openpdf` | `id` (可選)<br>`watermark` (可選)<br>`download` (可選，預設 `true`) | **程式化高精確排版**：使用 OpenPDF 產生雙層防孤兒排版之報價單 PDF，支援可選動態防偽浮水印 | `OpenPDF 2.0.4` | `application/pdf` | `X-Pdf-Engine: OpenPDF`<br>`Content-Disposition: attachment; filename="{id}_openpdf.pdf"` |
+| **GET** | `/api/v1/quotations/template`<br>*(同義別名 `/birt`)* | `id` (可選)<br>`watermark` (可選)<br>`download` (可選，預設 `true`) | **視覺化範本驅動排版**：使用 Eclipse BIRT 報表設計範本 (`.rptdesign`) 渲染標準報價單 PDF，支援可選動態防偽浮水印 | `Eclipse BIRT 4.20.0` | `application/pdf` | `X-Pdf-Engine: BIRT (Template)`<br>`Content-Disposition: attachment; filename="{id}_template.pdf"` |
+| **POST** | `/api/v1/quotations/watermark` | `multipart/form-data`<br>`file`: PDF 檔案 (二進位)<br>`watermark`: 浮水印文字 (必填)<br>`download` (可選，預設 `true`) | **通用 PDF 防偽浮水印蓋印**：上傳任意 PDF 檔案，由 OpenPDF 在每一頁中心疊加 45 度傾斜半透明防偽字樣 (微軟正黑體) | `OpenPDF 2.0.4` | `application/pdf` | `X-Pdf-Engine: OpenPDF (Watermark)`<br>`Content-Disposition: attachment; filename="{base}_watermarked.pdf"` |
 | **POST** | `/api/v1/quotations/parse` | `multipart/form-data`<br>`file`: PDF 檔案 (二進位) | **PDF 結構化逆向解析**：上傳 PDF，抽取純文字並透過正則狀態機剖析為結構化報價單 DTO | `Apache PDFBox 3.0.8` | `application/json` | `Content-Type: application/json`<br>(回傳 `QuotationParsedResource`) |
 
 > 📌 **回應標頭與下載機制說明**：
-> - `X-Pdf-Engine`：清楚標示底層渲染引擎為 `OpenPDF` 或 `BIRT (Template)`。
+> - `X-Pdf-Engine`：清楚標示底層渲染引擎為 `OpenPDF`、`BIRT (Template)` 或 `OpenPDF (Watermark)`。
 > - `Content-Disposition: attachment; filename="..."`：預設以附件方式回傳，Swagger UI 會自動呈現「Download file」按鈕以供下載檢視。若傳入 `download=false` 則以 `inline` 模式回傳，可在瀏覽器分頁直接預覽。
+> - `POST /api/v1/quotations/watermark`：防腐層設計，表現層接收 Spring `MultipartFile` 後封裝為領域無關的 `AddWatermarkCommand(byte[], watermarkText)`，調用 `AddWatermarkUseCase` 與 `PdfWatermarkPort`，絕不將框架物件傳入 Application Port。
 > - `POST /api/v1/quotations/parse`：防腐層設計，表現層接收 Spring `MultipartFile` 後封裝為領域無關的 `ParseQuotationPdfCommand(byte[], fileName)`，絕不將框架物件傳入 Application Port。回傳 JSON 包含報價單號、客戶資訊、物料明細、小計稅額總計與交易條款。
 
 ### OpenAPI 3.0 與 Swagger UI 互動式文件

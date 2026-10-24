@@ -1,5 +1,6 @@
 package com.example.demo.presentation.controller;
 
+import com.example.demo.application.port.in.AddWatermarkUseCase;
 import com.example.demo.application.port.in.GenerateQuotationPdfUseCase;
 import com.example.demo.application.port.in.GenerateTemplateQuotationPdfUseCase;
 import com.example.demo.application.port.in.ParseQuotationPdfUseCase;
@@ -58,6 +59,9 @@ class QuotationControllerTest {
 	@Mock
 	private ParseQuotationPdfUseCase parseQuotationPdfUseCase;
 
+	@Mock
+	private AddWatermarkUseCase addWatermarkUseCase;
+
 	private final QuotationResourceAssembler quotationResourceAssembler = new QuotationResourceAssembler();
 
 	@BeforeEach
@@ -66,6 +70,7 @@ class QuotationControllerTest {
 				generateQuotationPdfUseCase,
 				generateTemplateQuotationPdfUseCase,
 				parseQuotationPdfUseCase,
+				addWatermarkUseCase,
 				quotationResourceAssembler
 		);
 		this.mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -368,6 +373,88 @@ class QuotationControllerTest {
 
 		// When & Then
 		mockMvc.perform(multipart("/api/v1/quotations/parse").file(emptyFile))
+				.andExpect(status().isBadRequest());
+	}
+
+	/**
+	 * Feature: 取得 OpenPDF 報價單並指定浮水印文字
+	 * Scenario: 客戶端傳入 watermark="機密草稿" 參數時，API 成功回應 200 與 PDF 串流
+	 *
+	 * Given: 查詢條件帶有 id=QT-2026-WM 與 watermark=機密草稿
+	 * When: 發送 GET /api/v1/quotations/openpdf?id=QT-2026-WM&watermark=機密草稿
+	 * Then: 成功回傳 HTTP 200 與 PDF 二進位資料，標頭為 X-Pdf-Engine: OpenPDF
+	 */
+	@Test
+	@DisplayName("GET取得OpenPDF報價單-傳入浮水印參數-成功產出並回傳200")
+	void getQuotationPdf_withWatermark_success() throws Exception {
+		// Given
+		byte[] mockPdf = "%PDF-1.4 openpdf with watermark".getBytes();
+		when(generateQuotationPdfUseCase.generateQuotationPdf(any(GetQuotationQuery.class)))
+				.thenReturn(mockPdf);
+
+		// When & Then
+		mockMvc.perform(get("/api/v1/quotations/openpdf")
+						.param("id", "QT-2026-WM")
+						.param("watermark", "機密草稿"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_PDF))
+				.andExpect(header().string("X-Pdf-Engine", "OpenPDF"))
+				.andExpect(content().bytes(mockPdf));
+	}
+
+	/**
+	 * Feature: 上傳 PDF 並加蓋浮水印 API
+	 * Scenario: 正常情境 - 客戶端上傳 PDF 並指定浮水印文字，API 成功回傳蓋印後之 PDF 二進位檔
+	 *
+	 * Given: 合法 PDF 檔案與浮水印文字 "作廢"
+	 * When: 發送 POST /api/v1/quotations/watermark
+	 * Then: 成功回傳 HTTP 200 與 PDF 二進位資料，標頭為 X-Pdf-Engine: OpenPDF (Watermark)
+	 */
+	@Test
+	@DisplayName("POST加蓋PDF浮水印-正常情境-成功回傳蓋印後之PDF二進位串流")
+	void addWatermark_success() throws Exception {
+		// Given
+		MockMultipartFile validFile = new MockMultipartFile(
+				"file",
+				"sample.pdf",
+				MediaType.APPLICATION_PDF_VALUE,
+				"%PDF-1.4 sample file".getBytes()
+		);
+		byte[] watermarkedPdf = "%PDF-1.4 watermarked output".getBytes();
+		when(addWatermarkUseCase.addWatermark(any())).thenReturn(watermarkedPdf);
+
+		// When & Then
+		mockMvc.perform(multipart("/api/v1/quotations/watermark")
+						.file(validFile)
+						.param("watermark", "作廢"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_PDF))
+				.andExpect(header().string("X-Pdf-Engine", "OpenPDF (Watermark)"))
+				.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("sample_watermarked.pdf")))
+				.andExpect(content().bytes(watermarkedPdf));
+	}
+
+	/**
+	 * Feature: 上傳 PDF 並加蓋浮水印 API
+	 * Scenario: 異常情境 - 客戶端上傳空檔案時，API 回應 400 Bad Request
+	 *
+	 * Given: 內容為空之檔案
+	 * When: 發送 POST /api/v1/quotations/watermark
+	 * Then: 回傳 HTTP 400 Bad Request
+	 */
+	@Test
+	@DisplayName("POST加蓋PDF浮水印-驗證情境-空檔案回傳400")
+	void addWatermark_emptyFile_returns400() throws Exception {
+		MockMultipartFile emptyFile = new MockMultipartFile(
+				"file",
+				"empty.pdf",
+				MediaType.APPLICATION_PDF_VALUE,
+				new byte[0]
+		);
+
+		mockMvc.perform(multipart("/api/v1/quotations/watermark")
+						.file(emptyFile)
+						.param("watermark", "機密"))
 				.andExpect(status().isBadRequest());
 	}
 }
