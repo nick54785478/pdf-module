@@ -50,65 +50,129 @@ public class OpenPdfFontProvider {
 
 	/**
 	 * 初始化並快取中文字體 BaseFont
+	 * <p>
+	 * 依序嘗試以下來源策略進行字體載入：
+	 * <ol>
+	 *   <li>Classpath (application.properties 之 pdf.font.path)</li>
+	 *   <li>開發環境工作目錄相對路徑 (pdf.font.dev-fallback-path)</li>
+	 *   <li>Windows 系統字體庫 (pdf.font.system-fallback-path)</li>
+	 *   <li>標準 HELVETICA 內建字體（最後備選降級）</li>
+	 * </ol>
+	 * </p>
 	 *
 	 * @return 已載入之 BaseFont 實例
 	 */
 	private BaseFont initializeBaseFont() {
-		// 1. 優先由 Classpath (application.properties 之 pdf.font.path) 載入
-		String classpathLocation = fontProperties.getPath();
-		if (classpathLocation != null && !classpathLocation.isBlank()) {
-			URL fontUrl = getClass().getClassLoader().getResource(classpathLocation);
-			if (fontUrl != null) {
-				try {
-					File fontFile = new File(fontUrl.toURI());
-					if (fontFile.exists()) {
-						log.info("成功由 Classpath 檔案路徑載入字體: {}", fontFile.getAbsolutePath());
-						return BaseFont.createFont(fontFile.getAbsolutePath() + ",0", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-					}
-				} catch (Exception ignored) {
-					// 若為 jar 內資源，URI 可能無法轉為 File，由串流接手
-				}
-
-				try (InputStream is = fontUrl.openStream()) {
-					byte[] fontBytes = is.readAllBytes();
-					log.info("成功由 Classpath 串流載入字體 (bytes={})", fontBytes.length);
-					String fontName = resolveFontName(classpathLocation);
-					return BaseFont.createFont(fontName, BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, fontBytes, null);
-				} catch (Exception e) {
-					log.warn("由 Classpath 串流載入字體失敗", e);
-				}
-			}
+		BaseFont font = loadFontFromClasspath(fontProperties.getPath());
+		if (font != null) {
+			return font;
 		}
 
-		// 2. 次選：嘗試直接由工作目錄相對路徑 (pdf.font.dev-fallback-path) 載入
-		String devFallback = fontProperties.getDevFallbackPath();
-		if (devFallback != null && !devFallback.isBlank()) {
-			File directFont = new File(devFallback);
-			if (directFont.exists()) {
-				try {
-					log.info("成功由相對路徑載入字體: {}", directFont.getAbsolutePath());
-					return BaseFont.createFont(directFont.getAbsolutePath() + ",0", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-				} catch (Exception e) {
-					log.warn("由相對路徑載入字體失敗", e);
-				}
-			}
+		font = loadFontFromFile(fontProperties.getDevFallbackPath(), "相對路徑");
+		if (font != null) {
+			return font;
 		}
 
-		// 3. 備選：嘗試系統 Windows 字體庫 (pdf.font.system-fallback-path)
-		String systemFallback = fontProperties.getSystemFallbackPath();
-		if (systemFallback != null && !systemFallback.isBlank()) {
-			File sysFont = new File(systemFallback);
-			if (sysFont.exists()) {
-				try {
-					log.info("成功由 Windows 系統字體庫載入: {}", sysFont.getAbsolutePath());
-					return BaseFont.createFont(sysFont.getAbsolutePath() + ",0", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-				} catch (Exception e) {
-					log.warn("由系統字體庫載入微軟正黑體失敗", e);
-				}
-			}
+		font = loadFontFromFile(fontProperties.getSystemFallbackPath(), "Windows 系統字體庫");
+		if (font != null) {
+			return font;
 		}
 
-		// 4. 最後備選：標準 Helvetica
+		return loadFallbackHelvetica();
+	}
+
+	/**
+	 * 由 Classpath 載入字體（優先嘗試實體檔案，若為 JAR 內打包資源則自動退回為串流讀取）
+	 *
+	 * @param classpathLocation Classpath 相對資源路徑
+	 * @return BaseFont 實例，若路徑無效或載入失敗則回傳 null
+	 */
+	private BaseFont loadFontFromClasspath(String classpathLocation) {
+		if (classpathLocation == null || classpathLocation.isBlank()) {
+			return null;
+		}
+		URL fontUrl = getClass().getClassLoader().getResource(classpathLocation);
+		if (fontUrl == null) {
+			return null;
+		}
+
+		BaseFont font = tryLoadClasspathFile(fontUrl);
+		if (font != null) {
+			return font;
+		}
+
+		return tryLoadClasspathStream(fontUrl, classpathLocation);
+	}
+
+	/**
+	 * 嘗試將 Classpath URL 轉為實體檔案載入字體（適用於未打包 IDE 執行環境）
+	 *
+	 * @param fontUrl Classpath 資源 URL
+	 * @return BaseFont 實例，若無法轉為 File 或不存在則回傳 null
+	 */
+	private BaseFont tryLoadClasspathFile(URL fontUrl) {
+		try {
+			File fontFile = new File(fontUrl.toURI());
+			if (fontFile.exists()) {
+				log.info("成功由 Classpath 檔案路徑載入字體: {}", fontFile.getAbsolutePath());
+				return BaseFont.createFont(fontFile.getAbsolutePath() + ",0", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+			}
+		} catch (Exception ignored) {
+			// 若為 jar 內資源，URI 可能無法轉為 File，由串流接手
+		}
+		return null;
+	}
+
+	/**
+	 * 透過 InputStream 串流方式自 Classpath URL 讀取字體二進位資料並註冊
+	 *
+	 * @param fontUrl           Classpath 資源 URL
+	 * @param classpathLocation 原始資源路徑（用於解析字體名稱）
+	 * @return BaseFont 實例，若讀取或註冊失敗則回傳 null
+	 */
+	private BaseFont tryLoadClasspathStream(URL fontUrl, String classpathLocation) {
+		try (InputStream is = fontUrl.openStream()) {
+			byte[] fontBytes = is.readAllBytes();
+			log.info("成功由 Classpath 串流載入字體 (bytes={})", fontBytes.length);
+			String fontName = resolveFontName(classpathLocation);
+			return BaseFont.createFont(fontName, BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, fontBytes, null);
+		} catch (Exception e) {
+			log.warn("由 Classpath 串流載入字體失敗", e);
+			return null;
+		}
+	}
+
+	/**
+	 * 嘗試由指定實體檔案路徑載入字體（共用於工作目錄相對路徑與系統字體庫路徑）
+	 *
+	 * @param path              檔案路徑
+	 * @param sourceDescription 來源描述（用於 Log 追蹤輸出）
+	 * @return BaseFont 實例，若路徑為空、檔案不存在或載入失敗則回傳 null
+	 */
+	private BaseFont loadFontFromFile(String path, String sourceDescription) {
+		if (path == null || path.isBlank()) {
+			return null;
+		}
+		File fontFile = new File(path);
+		if (!fontFile.exists()) {
+			return null;
+		}
+		try {
+			log.info("成功由 {} 載入: {}", sourceDescription, fontFile.getAbsolutePath());
+			return BaseFont.createFont(fontFile.getAbsolutePath() + ",0", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+		} catch (Exception e) {
+			log.warn("由 {} 載入字體失敗", sourceDescription, e);
+			return null;
+		}
+	}
+
+	/**
+	 * 載入預設 HELVETICA 字體作為終極備援
+	 *
+	 * @return HELVETICA BaseFont 實例
+	 * @throws IllegalStateException 若連內建字體亦無法載入時拋出
+	 */
+	private BaseFont loadFallbackHelvetica() {
 		try {
 			log.error("無法載入微軟正黑體，降級使用內建 HELVETICA (不支援中文渲染)");
 			return BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED);

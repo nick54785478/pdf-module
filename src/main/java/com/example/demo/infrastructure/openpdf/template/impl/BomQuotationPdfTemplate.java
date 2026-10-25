@@ -235,10 +235,9 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 	 *
 	 * @param quotation    報價單資料 DTO
 	 * @param outputStream 目標 PDF 輸出串流
-	 * @throws Exception 當排版或資料寫入串流時發生例外
-	 */
+     */
 	@Override
-	public void render(QuotationGottenResult quotation, OutputStream outputStream) throws Exception {
+	public void render(QuotationGottenResult quotation, OutputStream outputStream) {
 		render(quotation, outputStream, null, getWatermarkStyle());
 	}
 
@@ -248,10 +247,9 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 	 * @param quotation     報價單資料 DTO
 	 * @param outputStream  目標 PDF 輸出串流
 	 * @param watermarkText 浮水印文字 (例如 "正式報價"、"機密")
-	 * @throws Exception 當排版或資料寫入串流時發生例外
-	 */
+     */
 	@Override
-	public void render(QuotationGottenResult quotation, OutputStream outputStream, String watermarkText) throws Exception {
+	public void render(QuotationGottenResult quotation, OutputStream outputStream, String watermarkText) {
 		render(quotation, outputStream, watermarkText, getWatermarkStyle());
 	}
 
@@ -276,11 +274,9 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 	 * @param outputStream   目標 PDF 輸出串流
 	 * @param watermarkText  可選之防偽浮水印文字 (若為 null 則不印製)
 	 * @param watermarkStyle 浮水印視覺樣式 (若為 null 則自動套用 {@link #getWatermarkStyle()})
-	 * @throws IllegalArgumentException 當輸入參數不合法時拋出
-	 * @throws Exception 當排版或 I/O 串流寫入過程發生例外時拋出
-	 */
+     */
 	@Override
-	public void render(QuotationGottenResult quotation, OutputStream outputStream, String watermarkText, OpenPdfWatermarkStyle watermarkStyle) throws Exception {
+	public void render(QuotationGottenResult quotation, OutputStream outputStream, String watermarkText, OpenPdfWatermarkStyle watermarkStyle) {
 		if (quotation == null) {
 			throw new IllegalArgumentException("報價單資料 (QuotationGottenResult) 不可為 null");
 		}
@@ -336,9 +332,8 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 	 *
 	 * @param document  PDF 文件實例
 	 * @param quotation 報價單資料 DTO
-	 * @throws Exception 當排版添加元素至文檔時發生例外
-	 */
-	private void renderHeader(Document document, QuotationGottenResult quotation) throws Exception {
+     */
+	private void renderHeader(Document document, QuotationGottenResult quotation) {
 		PdfPTable headerTable = new PdfPTable(2);
 		headerTable.setWidthPercentage(100);
 		headerTable.setWidths(new float[]{65f, 35f});
@@ -399,9 +394,8 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 	 *
 	 * @param document  PDF 文件實例
 	 * @param quotation 報價單資料 DTO
-	 * @throws Exception 當排版添加表格至文檔時發生例外
-	 */
-	private void renderCustomerGrid(Document document, QuotationGottenResult quotation) throws Exception {
+     */
+	private void renderCustomerGrid(Document document, QuotationGottenResult quotation) {
 		PdfPTable infoTable = new PdfPTable(4);
 		infoTable.setWidthPercentage(100);
 		infoTable.setWidths(new float[]{15f, 35f, 15f, 35f});
@@ -460,11 +454,10 @@ public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGot
 	 * @param writer          PDF 寫入器實例
 	 * @param pageEventHelper 分頁與版面事件控制器
 	 * @param quotation       報價單資料 DTO
-	 * @throws Exception 當表格繪製或主動換頁發生例外時拋出
-	 */
+     */
 	private void renderBomAndFooterSections(Document document, PdfWriter writer,
 											OpenPdfPageEventHelper pageEventHelper,
-											QuotationGottenResult quotation) throws Exception {
+											QuotationGottenResult quotation) {
 		List<QuotationItemGottenResult> items = quotation.items();
 		PdfPTable footerBlock = buildFooterCompositeBlock(quotation);
 		float footerHeight = OpenPdfPageEventHelper.calculateTableHeight(footerBlock, document);

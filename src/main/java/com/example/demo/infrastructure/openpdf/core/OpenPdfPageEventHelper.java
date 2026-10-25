@@ -1,5 +1,6 @@
 package com.example.demo.infrastructure.openpdf.core;
 
+import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import com.lowagie.text.Document;
@@ -31,18 +32,25 @@ import java.awt.Color;
 @Slf4j
 public class OpenPdfPageEventHelper extends PdfPageEventHelper {
 
+    @Getter
     private final BaseFont baseFont;
+    @Getter
     private PdfTemplate totalPagesTemplate;
+    @Getter
     private int totalPages = 0;
 
     /**
      * 當前頁面已渲染之明細資料列計數器 (用於偵測與防範孤兒頁)
+     * -- GETTER --
+     *  取得當前頁面已渲染之明細行數
      */
+    @Getter
     private int itemsRenderedOnCurrentPage = 0;
 
     /**
      * 可選的水印文字 (如：正式報價、草稿、機密)
      */
+    @Getter
     @Setter
     private String watermarkText;
 
@@ -54,10 +62,6 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
 
     public OpenPdfPageEventHelper(BaseFont baseFont) {
         this.baseFont = baseFont;
-    }
-
-    public String getWatermarkText() {
-        return watermarkText;
     }
 
     public OpenPdfWatermarkStyle getWatermarkStyle() {
@@ -83,15 +87,6 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
      */
     public void recordItemRendered(int count) {
         this.itemsRenderedOnCurrentPage += count;
-    }
-
-    /**
-     * 取得當前頁面已渲染之明細行數
-     *
-     * @return 當前頁面已有的明細列數量
-     */
-    public int getItemsRenderedOnCurrentPage() {
-        return itemsRenderedOnCurrentPage;
     }
 
     /**
@@ -152,18 +147,6 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
         table.setLockedWidth(true);
         table.calculateHeights(true);
         return table.getTotalHeight();
-    }
-
-    public BaseFont getBaseFont() {
-        return baseFont;
-    }
-
-    public PdfTemplate getTotalPagesTemplate() {
-        return totalPagesTemplate;
-    }
-
-    public int getTotalPages() {
-        return totalPages;
     }
 
     @Override
