@@ -155,10 +155,23 @@ public class OpenPdfFontProvider {
 	}
 
 	/**
-	 * 取得報價單強調主標字體 (22pt 粗體 裝飾藍)
+	 * 取得展示型超大標題字體 (22pt 粗體 裝飾藍)
+	 * <p>
+	 * 適用於報表頂部視覺主標題（如「報價單」、「出貨驗收單」、「工單」等展示大標）。
+	 * </p>
+	 *
+	 * @return 22pt 粗體字型實例
 	 */
-	public Font getQuotationTitleFont() {
+	public Font getDisplayTitleFont() {
 		return createFont(22f, Font.BOLD, OpenPdfStylePalette.ACCENT_BLUE);
+	}
+
+	/**
+	 * @deprecated 請改用通用層級命名 {@link #getDisplayTitleFont()}，避免字型提供者綁定特定業務單據名稱。
+	 */
+	@Deprecated
+	public Font getQuotationTitleFont() {
+		return getDisplayTitleFont();
 	}
 
 	/**

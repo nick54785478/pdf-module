@@ -62,7 +62,7 @@ public class MockServiceAdapter implements MockServicePort {
 		items.add(new QuotationItemGottenResult(1, "MCU-STM32-H743", "嵌入式高性能核心控制器 ARM Cortex-M7 480MHz 2MB Flash", 100, "PCS", new BigDecimal("520"), new BigDecimal("52000"), "原廠出廠證明"));
 		items.add(new QuotationItemGottenResult(2, "SEN-MEMS-6AXIS", "六軸高精度慣性測量單元 (IMU) 數位感測器 (含溫度補償)", 200, "PCS", new BigDecimal("180"), new BigDecimal("36000"), "附校準參數表"));
 		items.add(new QuotationItemGottenResult(3, "PWR-DIN24-120W", "工業級導軌式開關電源模組 (輸入 100-240VAC，輸出 24V/5A)", 20, "台", new BigDecimal("1450"), new BigDecimal("29000"), "過載/過溫保護"));
-//		items.add(new QuotationItemGottenResult(4, "PCB-4L-FR4-TG", "四層高密度沉金印刷電路板 (120x80mm, TG170, 阻抗控制)", 100, "片", new BigDecimal("280"), new BigDecimal("28000"), "100% 飛針測試"));
+		items.add(new QuotationItemGottenResult(4, "PCB-4L-FR4-TG", "四層高密度沉金印刷電路板 (120x80mm, TG170, 阻抗控制)", 100, "片", new BigDecimal("280"), new BigDecimal("28000"), "100% 飛針測試"));
 //		items.add(new QuotationItemGottenResult(4, "PCB-4L-FR4-TG", "四層高密度沉金印刷電路板 (120x80mm, TG170, 阻抗控制)", 100, "片", new BigDecimal("280"), new BigDecimal("28000"), "100% 飛針測試"));
 //		items.add(new QuotationItemGottenResult(4, "PCB-4L-FR4-TG", "四層高密度沉金印刷電路板 (120x80mm, TG170, 阻抗控制)", 100, "片", new BigDecimal("280"), new BigDecimal("28000"), "100% 飛針測試"));
 //		items.add(new QuotationItemGottenResult(4, "PCB-4L-FR4-TG", "四層高密度沉金印刷電路板 (120x80mm, TG170, 阻抗控制)", 100, "片", new BigDecimal("280"), new BigDecimal("28000"), "100% 飛針測試"));

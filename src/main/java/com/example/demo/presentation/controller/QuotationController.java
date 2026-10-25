@@ -66,15 +66,77 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class QuotationController {
 
-	/** 標註底層使用的 PDF 渲染引擎 */
-	public static final String PDF_ENGINE_OPENPDF = "OpenPDF";
-	public static final String PDF_ENGINE_TEMPLATE = "BIRT (Template)";
-	public static final String PDF_ENGINE_WATERMARK = "OpenPDF (Watermark)";
-	public static final String PDF_ENGINE_SECURITY = "OpenPDF (Security)";
-	public static final String PDF_ENGINE_SIGNATURE = "OpenPDF (Digital Signature)";
-	public static final String PDF_ENGINE_PDFBOX_SECURITY = "PDFBox (Security)";
-	public static final String PDF_ENGINE_PDFBOX_SIGNATURE = "PDFBox (Digital Signature)";
+	/**
+	 * 自定義 HTTP 回應標頭名稱 (Custom HTTP Response Header)
+	 * <p>
+	 * 用於在回應標頭中明確標註當前回傳之 PDF 檔案所採用的底層渲染或安全處理引擎，
+	 * 提供執行期架構透明化、APM 效能監控、前端識別與自動化整合測試斷言。
+	 * </p>
+	 */
 	public static final String HEADER_PDF_ENGINE = "X-Pdf-Engine";
+
+	/**
+	 * OpenPDF 程式化像素級高精確排版引擎標識
+	 * <p>
+	 * 用於標註透過 OpenPDF 2.0.4 純 Java 繪製之報價單文件（包含雙層防孤兒排版與單次防偽浮水印）。
+	 * 對應端點：{@code GET /api/v1/quotations/openpdf}。
+	 * </p>
+	 */
+	public static final String PDF_ENGINE_OPENPDF = "OpenPDF";
+
+	/**
+	 * Eclipse BIRT 視覺化報表設計範本渲染引擎標識
+	 * <p>
+	 * 用於標註透過 Eclipse BIRT Runtime 4.20.0 配合 XML 報表設計範本 ({@code .rptdesign}) 動態渲染之報價單文件。
+	 * 對應端點：{@code GET /api/v1/quotations/template} 或 {@code GET /api/v1/quotations/birt}。
+	 * </p>
+	 */
+	public static final String PDF_ENGINE_TEMPLATE = "BIRT (Template)";
+
+	/**
+	 * OpenPDF 通用防偽浮水印後製蓋印標識
+	 * <p>
+	 * 用於標註透過 OpenPDF {@code PdfStamper} 於既有 PDF 各頁面疊加傾斜 45 度半透明防偽字樣之處理結果。
+	 * 對應端點：{@code POST /api/v1/quotations/watermark}。
+	 * </p>
+	 */
+	public static final String PDF_ENGINE_WATERMARK = "OpenPDF (Watermark)";
+
+	/**
+	 * OpenPDF 輕量級安全加密防護標識 (備用)
+	 * <p>
+	 * 用於標註透過 OpenPDF 執行之 128-bit 權限控管與密碼加解密處理結果。
+	 * </p>
+	 */
+	public static final String PDF_ENGINE_SECURITY = "OpenPDF (Security)";
+
+	/**
+	 * OpenPDF 標準數位簽章標識 (備用)
+	 * <p>
+	 * 用於標註透過 OpenPDF 執行之標準 PKCS#7 數位簽署處理結果。
+	 * </p>
+	 */
+	public static final String PDF_ENGINE_SIGNATURE = "OpenPDF (Digital Signature)";
+
+	/**
+	 * Apache PDFBox 最高安全規格 256-bit AES 加解密防護引擎標識
+	 * <p>
+	 * 用於標註透過 Apache PDFBox 3.x 執行之軍規級 256-bit AES 加密、8 項細粒度權限矩陣控管或無損密碼解密還原。
+	 * 對應端點：{@code POST /api/v1/quotations/encrypt} 與 {@code POST /api/v1/quotations/decrypt}。
+	 * </p>
+	 */
+	public static final String PDF_ENGINE_PDFBOX_SECURITY = "PDFBox (Security)";
+
+	/**
+	 * Apache PDFBox 增量儲存不可否認性數位簽章引擎標識
+	 * <p>
+	 * 用於標註透過 Apache PDFBox 3.x 結合 BouncyCastle 執行之增量儲存 ({@code doc.saveIncremental}) PKCS#7 / PAdES
+	 * 數位簽署，支援單據範本感知專屬規範與雙線防偽鋼印客製化外觀。
+	 * 對應端點：{@code POST /api/v1/quotations/sign}。
+	 * </p>
+	 */
+	public static final String PDF_ENGINE_PDFBOX_SIGNATURE = "PDFBox (Digital Signature)";
+
 
 	private final GenerateQuotationPdfUseCase generateQuotationPdfUseCase;
 	private final GenerateTemplateQuotationPdfUseCase generateTemplateQuotationPdfUseCase;
@@ -426,7 +488,7 @@ public class QuotationController {
 					)
 			)
 	})
-	@PostMapping(value = "/watermark", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	@PostMapping(value = "/watermark", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
 	public ResponseEntity<byte[]> addWatermark(
 			@Parameter(
 					description = "欲加蓋浮水印之 PDF 檔案",
@@ -455,7 +517,7 @@ public class QuotationController {
 
 		if (file == null || file.isEmpty()) {
 			log.warn("加蓋浮水印失敗：上傳之 PDF 檔案為空");
-			return ResponseEntity.badRequest().build();
+			throw new IllegalArgumentException("待加蓋浮水印之 PDF 檔案不可為空");
 		}
 
 		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";
@@ -513,7 +575,7 @@ public class QuotationController {
 					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorOccurredResource.class))
 			)
 	})
-	@PostMapping(value = "/encrypt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	@PostMapping(value = "/encrypt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
 	public ResponseEntity<byte[]> encryptPdf(
 			@Parameter(description = "欲加密之 PDF 檔案", required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
 			@RequestParam("file") MultipartFile file,
@@ -535,7 +597,7 @@ public class QuotationController {
 
 		if (file == null || file.isEmpty()) {
 			log.warn("PDF 加密失敗：上傳之檔案為空");
-			return ResponseEntity.badRequest().build();
+			throw new IllegalArgumentException("待加密之 PDF 檔案不可為空");
 		}
 
 		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";
@@ -592,7 +654,7 @@ public class QuotationController {
 					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorOccurredResource.class))
 			)
 	})
-	@PostMapping(value = "/decrypt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	@PostMapping(value = "/decrypt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
 	public ResponseEntity<byte[]> decryptPdf(
 			@Parameter(description = "欲解密之受保護 PDF 檔案", required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
 			@RequestParam("file") MultipartFile file,
@@ -605,7 +667,7 @@ public class QuotationController {
 
 		if (file == null || file.isEmpty()) {
 			log.warn("PDF 解密失敗：上傳之檔案為空");
-			return ResponseEntity.badRequest().build();
+			throw new IllegalArgumentException("待解密之 PDF 檔案不可為空");
 		}
 
 		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";
@@ -668,7 +730,7 @@ public class QuotationController {
 					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorOccurredResource.class))
 			)
 	})
-	@PostMapping(value = "/sign", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_PDF_VALUE)
+	@PostMapping(value = "/sign", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
 	public ResponseEntity<byte[]> signPdf(
 			@Parameter(description = "欲進行數位簽章之原始 PDF 檔案", required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
 			@RequestParam("file") MultipartFile file,
@@ -705,11 +767,11 @@ public class QuotationController {
 
 		if (file == null || file.isEmpty()) {
 			log.warn("PDF 數位簽章失敗：上傳之 PDF 檔案為空");
-			return ResponseEntity.badRequest().build();
+			throw new IllegalArgumentException("待簽章之 PDF 檔案不可為空");
 		}
 		if (keystore == null || keystore.isEmpty()) {
 			log.warn("PDF 數位簽章失敗：上傳之金鑰庫檔案為空");
-			return ResponseEntity.badRequest().build();
+			throw new IllegalArgumentException("PKCS#12 金鑰庫檔案不可為空");
 		}
 
 		String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document.pdf";

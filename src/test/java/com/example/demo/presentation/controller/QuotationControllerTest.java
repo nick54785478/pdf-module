@@ -16,6 +16,7 @@ import com.example.demo.application.shared.dto.QuotationItemGottenResult;
 import com.example.demo.application.shared.query.GetQuotationQuery;
 import com.example.demo.presentation.assembler.QuotationResourceAssembler;
 import com.example.demo.presentation.exception.GlobalExceptionHandler;
+import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -559,6 +560,86 @@ class QuotationControllerTest {
 				.andExpect(header().string("X-Pdf-Engine", "PDFBox (Security)"))
 				.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("protected_decrypted.pdf")))
 				.andExpect(content().bytes(mockDecrypted));
+	}
+
+	/**
+	 * Feature: 上傳 PDF 進行解密 API 異常防禦
+	 * Scenario: 密碼錯誤異常分支 - 解密密碼錯誤時，系統攔截 IllegalArgumentException 並回傳 400 Bad Request JSON
+	 *
+	 * Given: 上傳受保護之 PDF，但傳入錯誤密碼，UseCase 拋出 IllegalArgumentException("PDF 解密失敗：密碼錯誤或未授權存取")
+	 * When: 發送 POST /api/v1/quotations/decrypt 請求
+	 * Then: 回傳狀態碼 400 Bad Request，Content-Type 為 application/json，回應結構符合 ErrorOccurredResource
+	 */
+	@Test
+	@DisplayName("POST解密PDF-異常分支-密碼錯誤回傳400BadRequest與ErrorOccurredResource")
+	void decryptPdf_wrongPassword_returnsBadRequestJson() throws Exception {
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "protected.pdf", MediaType.APPLICATION_PDF_VALUE, "%PDF-1.5 Encrypted".getBytes()
+		);
+
+		when(decryptPdfUseCase.decryptPdf(any(DecryptPdfCommand.class)))
+				.thenThrow(new IllegalArgumentException("PDF 解密失敗：密碼錯誤或未授權存取"));
+
+		mockMvc.perform(multipart("/api/v1/quotations/decrypt")
+						.file(file)
+						.param("password", "wrongSecret")
+						.param("download", "true"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.error").value("Bad Request"))
+				.andExpect(jsonPath("$.message").value("PDF 解密失敗：密碼錯誤或未授權存取"));
+	}
+
+	/**
+	 * Feature: 上傳 PDF 進行解密 API 異常防禦
+	 * Scenario: 全域密碼錯誤例外攔截 - GlobalExceptionHandler 攔截 PDFBox InvalidPasswordException 並回傳 400 Bad Request JSON
+	 *
+	 * Given: 捕獲底層 InvalidPasswordException
+	 * When: GlobalExceptionHandler.handleInvalidPassword 處理該例外
+	 * Then: 回傳狀態碼 400 Bad Request，Content-Type 為 application/json，回應結構包含密碼錯誤提示
+	 */
+	@Test
+	@DisplayName("GlobalExceptionHandler-PDFBox密碼錯誤攔截-回傳400BadRequest與ErrorOccurredResource")
+	void handleInvalidPassword_returnsBadRequestJson() {
+		GlobalExceptionHandler handler = new GlobalExceptionHandler();
+		InvalidPasswordException mockEx = org.mockito.Mockito.mock(InvalidPasswordException.class);
+		org.mockito.Mockito.when(mockEx.getMessage()).thenReturn("Cannot decrypt PDF, the password is incorrect");
+		org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
+		request.setRequestURI("/api/v1/quotations/decrypt");
+
+		org.springframework.http.ResponseEntity<com.example.demo.presentation.resource.out.ErrorOccurredResource> response =
+				handler.handleInvalidPassword(mockEx, request);
+
+		org.junit.jupiter.api.Assertions.assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, response.getStatusCode());
+		org.junit.jupiter.api.Assertions.assertEquals(MediaType.APPLICATION_JSON, response.getHeaders().getContentType());
+		org.junit.jupiter.api.Assertions.assertNotNull(response.getBody());
+		org.junit.jupiter.api.Assertions.assertEquals(400, response.getBody().status());
+		org.junit.jupiter.api.Assertions.assertEquals("PDF 解密失敗：密碼錯誤或未授權存取", response.getBody().message());
+	}
+
+	/**
+	 * Feature: 上傳 PDF 進行解密 API 參數檢核
+	 * Scenario: 空檔案異常分支 - 未選擇檔案或上傳空檔案時，回傳 400 Bad Request JSON
+	 *
+	 * Given: 一個空的 MultipartFile
+	 * When: 發送 POST /api/v1/quotations/decrypt 請求
+	 * Then: 回傳狀態碼 400 Bad Request，Content-Type 為 application/json，提示待解密檔案不可為空
+	 */
+	@Test
+	@DisplayName("POST解密PDF-異常分支-空檔案上傳回傳400BadRequest")
+	void decryptPdf_emptyFile_returnsBadRequestJson() throws Exception {
+		MockMultipartFile emptyFile = new MockMultipartFile(
+				"file", "empty.pdf", MediaType.APPLICATION_PDF_VALUE, new byte[0]
+		);
+
+		mockMvc.perform(multipart("/api/v1/quotations/decrypt")
+						.file(emptyFile)
+						.param("password", "secret"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.message").value("待解密之 PDF 檔案不可為空"));
 	}
 
 	/**

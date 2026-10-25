@@ -114,11 +114,12 @@ src/main/java/com/example/demo/
 │   │   │   ├── OpenPdfFontProvider.java             # 字體單例快取 (MSJHL.TTC) 與階層樣式提供者
 │   │   │   ├── OpenPdfStylePalette.java             # 企業排版調色盤與視覺幾何常數
 │   │   │   ├── OpenPdfCellFactory.java              # 儲存格與行排版工廠
-│   │   │   ├── OpenPdfWatermarkStyle.java           # 浮水印視覺樣式配置值物件 (支援防偽鋼印與副標)
-│   │   │   └── OpenPdfPageEventHelper.java          # 分頁、動態頁碼與防偽鋼印浮水印事件
-│   │   └── template/                                # 【業務專屬範本】
+│   │   │   ├── OpenPdfWatermarkStyle.java           # 通用浮水印視覺樣式配置值物件 (提供通用預設樣式與 Builder)
+│   │   │   └── OpenPdfPageEventHelper.java          # 頁首頁尾生命週期鈎子、雙階段總頁數填寫與排版度量事件基底
+│   │   └── template/                                # 【業務範本層】
 │   │       ├── PdfDocumentTemplate.java             # PDF 業務範本通用抽象契約 (提供簽章規範與浮水印 Hook)
-│   │       └── BomQuotationPdfTemplate.java         # 物料清單 (BOM) 報價單專屬排版實作 (定義 PAdES 簽章規範與鋼印)
+│   │       └── impl/                                # 【具體範本實作】
+│   │           └── BomQuotationPdfTemplate.java     # 物料清單 (BOM) 報價單專屬排版實作 (定義專屬頁碼、浮水印與簽章規範)
 │   ├── pdfbox/                                      # Apache PDFBox 3.x 安全與簽章子系統
 │   │   └── security/                                # 安全與數位簽章子系統
 │   │       ├── policy/                              # 【自定義數位簽章規範體系 (Policy)】

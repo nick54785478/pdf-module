@@ -2,7 +2,7 @@ package com.example.demo.infrastructure.adapter;
 
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.port.out.QuotationPdfGeneratorPort;
-import com.example.demo.infrastructure.openpdf.template.BomQuotationPdfTemplate;
+import com.example.demo.infrastructure.openpdf.template.impl.BomQuotationPdfTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

@@ -8,8 +8,8 @@
 ## 1. 概念與設計哲學回顧
 
 本模組的核心排版哲學為**「通用積木下沉，業務範本自治」**：
-* **通用排版積木 (`infrastructure/openpdf/core/`)**：提供無狀態、單例快取的字體載入 (`OpenPdfFontProvider`)、企業色彩與常數 (`OpenPdfStylePalette`)、儲存格與行排版工廠 (`OpenPdfCellFactory`) 以及跨頁「第 X 頁 / 共 Y 頁」雙階段計算動態頁碼控制器 (`OpenPdfPageEventHelper`)。
-* **業務專屬範本 (`infrastructure/openpdf/template/`)**：每個業務單據（如報價單、出貨單、發票憑證、請購單等）各自擁有獨立的範本類別，依據自身版面規則調用通用積木進行拼裝，**互不干擾、修改單一報表絕不牽連全局**。
+* **通用排版積木 (`infrastructure/openpdf/core/`)**：提供無狀態、單例快取的字體載入 (`OpenPdfFontProvider`)、企業色彩與常數 (`OpenPdfStylePalette`)、儲存格與行排版工廠 (`OpenPdfCellFactory`)、通用浮水印樣式值物件 (`OpenPdfWatermarkStyle`) 以及頁首頁尾生命週期鈎子與兩階段總頁數控制器 (`OpenPdfPageEventHelper`)。
+* **業務專屬範本 (`infrastructure/openpdf/template/impl/`)**：每個業務單據（如報價單、出貨單、發票憑證、請購單等）各自擁有獨立的範本類別，依據自身版面規則調用通用積木進行拼裝，並在範本內部自治定義專屬之浮水印樣式與頁碼格式，**互不干擾、修改單一報表絕不牽連全局**。
 
 ---
 
@@ -20,7 +20,7 @@
 ```mermaid
 flowchart TD
     Step1["Step 1: 定義業務 DTO<br/>(application/shared/dto/)"] --> Step2["Step 2: 定義輸出端口 Port<br/>(application/port/out/)"]
-    Step2 --> Step3["Step 3: 實作專屬 PDF 範本<br/>(infrastructure/openpdf/template/)"]
+    Step2 --> Step3["Step 3: 實作專屬 PDF 範本<br/>(infrastructure/openpdf/template/impl/)"]
     Step3 --> Step4["Step 4: 實作外向適配器 Adapter<br/>(infrastructure/adapter/)"]
     Step4 --> Step5["Step 5: 應用層用例 UseCase 串接<br/>(application/port/in/ & service/)"]
     Step5 --> Step6["Step 6: 表現層 API 暴露與 OpenAPI 標註<br/>(presentation/controller/)"]
@@ -110,14 +110,15 @@ public interface DeliveryNotePdfPort {
 
 * **規範**：
   * 實作 `PdfDocumentTemplate<T>` 契約介面。
-  * 放置於 `src/main/java/com/example/demo/infrastructure/openpdf/template/`。
+  * 放置於 `src/main/java/com/example/demo/infrastructure/openpdf/template/impl/`。
   * 標註 Spring `@Component`。
-  * 注入 `OpenPdfFontProvider`，並搭配 `OpenPdfStylePalette`、`OpenPdfCellFactory`、`OpenPdfPageEventHelper` 快速拼裝。
+  * 注入 `OpenPdfFontProvider`，並搭配 `OpenPdfStylePalette`、`OpenPdfCellFactory`、`OpenPdfWatermarkStyle` 快速拼裝。
+  * 繼承 `OpenPdfPageEventHelper` 實作範本專屬之頁尾頁碼排版（例如出貨單專屬之「出貨單 第 X 頁 / 共 Y 頁」）。
 
 #### 建議的類別結構與分解方法：
 
 ```java
-package com.example.demo.infrastructure.openpdf.template;
+package com.example.demo.infrastructure.openpdf.template.impl;
 
 import com.example.demo.application.shared.dto.DeliveryItemGottenResult;
 import com.example.demo.application.shared.dto.DeliveryNoteGottenResult;
@@ -125,6 +126,8 @@ import com.example.demo.infrastructure.openpdf.core.OpenPdfCellFactory;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfFontProvider;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfPageEventHelper;
 import com.example.demo.infrastructure.openpdf.core.OpenPdfStylePalette;
+import com.example.demo.infrastructure.openpdf.core.OpenPdfWatermarkStyle;
+import com.example.demo.infrastructure.openpdf.template.PdfDocumentTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openpdf.text.Document;
@@ -140,7 +143,6 @@ import org.springframework.stereotype.Component;
 
 import java.awt.Color;
 import java.io.OutputStream;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -186,8 +188,8 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
         Document document = new Document(PageSize.A4, 32f, 32f, 36f, 36f);
         PdfWriter writer = PdfWriter.getInstance(document, outputStream);
 
-        // 2. 掛載跨頁動態頁碼與浮水印控制器
-        OpenPdfPageEventHelper pageEventHelper = new OpenPdfPageEventHelper(fontProvider.getBaseFont());
+        // 2. 掛載出貨單專屬的頁尾頁碼控制器 (繼承自 OpenPdfPageEventHelper)
+        DeliveryNotePageEventHelper pageEventHelper = new DeliveryNotePageEventHelper(fontProvider);
         if (watermarkText != null && !watermarkText.trim().isEmpty()) {
             pageEventHelper.setWatermarkText(watermarkText.trim());
             pageEventHelper.setWatermarkStyle(watermarkStyle != null ? watermarkStyle : getWatermarkStyle());
@@ -217,7 +219,7 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
         PdfPCell leftCell = new PdfPCell();
         leftCell.setBorder(Rectangle.NO_BORDER);
         leftCell.addElement(new Paragraph("晨星智造整合科技股份有限公司", fontProvider.getTitleFont()));
-        leftCell.addElement(new Paragraph("出 貨 單 (DELIVERY NOTE)", fontProvider.getSubtitleFont()));
+        leftCell.addElement(new Paragraph("出 貨 單 (DELIVERY NOTE)", fontProvider.getDisplayTitleFont()));
         table.addCell(leftCell);
 
         PdfPCell rightCell = new PdfPCell();
@@ -231,7 +233,7 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
         document.add(table);
     }
 
-    /** 區塊 B: 客戶交運資訊 4 欄網格 */
+    /** 區塊 B: 客戶交運資訊 4 欄網格 (使用通用 addKeyValueCell 簡潔排版) */
     private void renderInfoGrid(Document document, DeliveryNoteGottenResult data) throws Exception {
         PdfPTable grid = new PdfPTable(4);
         grid.setWidthPercentage(100);
@@ -242,15 +244,10 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
         Color labelBg = OpenPdfStylePalette.BG_LIGHT_GRAY;
         Color border = OpenPdfStylePalette.BORDER_GRAY;
 
-        OpenPdfCellFactory.addInfoCell(grid, "客戶名稱：", labelFont, true, labelBg, border);
-        OpenPdfCellFactory.addInfoCell(grid, data.customerName(), valFont, false, Color.WHITE, border);
-        OpenPdfCellFactory.addInfoCell(grid, "運送方式：", labelFont, true, labelBg, border);
-        OpenPdfCellFactory.addInfoCell(grid, data.shippingMethod(), valFont, false, Color.WHITE, border);
-
-        OpenPdfCellFactory.addInfoCell(grid, "收件地址：", labelFont, true, labelBg, border);
-        OpenPdfCellFactory.addInfoCell(grid, data.deliveryAddress(), valFont, false, Color.WHITE, border);
-        OpenPdfCellFactory.addInfoCell(grid, "聯絡電話：", labelFont, true, labelBg, border);
-        OpenPdfCellFactory.addInfoCell(grid, data.recipientPhone(), valFont, false, Color.WHITE, border);
+        OpenPdfCellFactory.addKeyValueCell(grid, "客戶名稱：", data.customerName(), labelFont, valFont, labelBg, Color.WHITE, border);
+        OpenPdfCellFactory.addKeyValueCell(grid, "運送方式：", data.shippingMethod(), labelFont, valFont, labelBg, Color.WHITE, border);
+        OpenPdfCellFactory.addKeyValueCell(grid, "收件地址：", data.deliveryAddress(), labelFont, valFont, labelBg, Color.WHITE, border);
+        OpenPdfCellFactory.addKeyValueCell(grid, "聯絡電話：", data.recipientPhone(), labelFont, valFont, labelBg, Color.WHITE, border);
 
         document.add(grid);
     }
@@ -305,6 +302,31 @@ public class DeliveryNotePdfTemplate implements PdfDocumentTemplate<DeliveryNote
         signTable.addCell(right);
         document.add(signTable);
     }
+
+    /**
+     * 出貨單專屬頁碼控制器 (繼承通用排版積木 OpenPdfPageEventHelper)
+     */
+    private static class DeliveryNotePageEventHelper extends OpenPdfPageEventHelper {
+        private final Font footerFont;
+
+        public DeliveryNotePageEventHelper(OpenPdfFontProvider fontProvider) {
+            super(fontProvider.getBaseFont());
+            this.footerFont = fontProvider.getBodyMuted();
+        }
+
+        @Override
+        protected void onDrawFooter(PdfWriter writer, Document document) {
+            String pageText = String.format("出貨單 第 %d 頁 / 共 ", writer.getPageNumber());
+            float x = (document.left() + document.right()) / 2.0f;
+            float y = document.bottom() - 18.0f;
+            drawFooterPageNumberWithTemplate(writer, footerFont, pageText, x, y);
+        }
+
+        @Override
+        protected void onFillTotalPages(PdfWriter writer, Document document) {
+            fillTotalPagesTemplate(writer, footerFont, 0.0f, 0.0f);
+        }
+    }
 }
 ```
 
@@ -323,7 +345,7 @@ package com.example.demo.infrastructure.adapter;
 
 import com.example.demo.application.port.out.DeliveryNotePdfPort;
 import com.example.demo.application.shared.dto.DeliveryNoteGottenResult;
-import com.example.demo.infrastructure.openpdf.template.DeliveryNotePdfTemplate;
+import com.example.demo.infrastructure.openpdf.template.impl.DeliveryNotePdfTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -433,11 +455,12 @@ public class DeliveryNoteController {
 | :--- | :--- | :--- | :--- | :--- |
 | `getTitleFont()` | 16pt | Bold | `PRIMARY_NAVY` (#0F172A) | 公司名稱、文件主抬頭 |
 | `getSubtitleFont()` | 9pt | Normal | `TEXT_MUTED` (#64748B) | 英文副標題、機構代號 |
-| `getQuotationTitleFont()` | 20pt | Bold | `PRIMARY_NAVY` (#0F172A) | 大標題 (如「報價單」、「出貨單」) |
+| `getDisplayTitleFont()` | 22pt | Bold | `PRIMARY_NAVY` (#0F172A) | 文件大型醒目標題 (如「報價單」、「出貨單」) |
+| `getQuotationTitleFont()` | 20pt | Bold | `PRIMARY_NAVY` (#0F172A) | *(已棄用 `@Deprecated`，請改用 `getDisplayTitleFont()`)* |
 | `getHeaderFont()` | 9.5pt | Bold | `Color.WHITE` | 表格深色表頭標題 |
 | `getBodyBold()` | 9pt | Bold | `TEXT_DARK` (#1E293B) | 欄位 Label、總計摘要項 |
 | `getBodyRegular()` | 9pt | Normal | `TEXT_DARK` (#1E293B) | 表格資料內文、明細品項 |
-| `getBodyMuted()` | 8.5pt | Normal | `TEXT_MUTED` (#64748B) | 地址、備註條款、細則說明 |
+| `getBodyMuted()` | 8.5pt | Normal | `TEXT_MUTED` (#64748B) | 地址、備註條款、細則說明、頁尾頁碼 |
 | `getTotalFont()` | 11pt | Bold | `HIGHLIGHT_GREEN` (#047857) | 最終含稅總計大字 |
 | `createFont(size, style, color)` | 自訂 | 自訂 | 自訂 | 特殊視覺或微調字級需求 |
 
@@ -448,11 +471,12 @@ public class DeliveryNoteController {
 * **邊框與格線 (`BORDER_GRAY`)**：`#E2E8F0`（淡冷灰，細緻格線不干擾閱讀）。
 * **卡片與標籤背景 (`BG_LIGHT_GRAY` / `CARD_BG_LIGHT`)**：`#F8FAFC`（柔和底色，用於 Label 標籤格）。
 * **明細斑馬紋 (`ROW_ALT_BG`)**：`#F8FAFC`（偶數列背景色，提高多行表格掃視度）。
-* **金額高亮背景 (`TOTAL_BG_LIGHT`)**：`#ECFDF5`（淺翠綠底，突顯最終總金額）。
+* **警示與標記背景 (`BG_SOFT_RED`)**：`#FEF2F2`（柔和淡粉紅，用於警示欄位或特殊備註背景）。
+* **金額高亮背景 (`TOTAL_BG_LIGHT`)**：`#ECFDF5`（*(已棄用 `@Deprecated`)* 淺翠綠底）。
 
 ### 3.3 儲存格工廠常用方法 (`OpenPdfCellFactory`)
 
-* **表頭儲存格**：
+* **深色表頭儲存格**：
   ```java
   table.addCell(OpenPdfCellFactory.createHeaderCell("品名規格", fontProvider.getHeaderFont(), OpenPdfStylePalette.PRIMARY_NAVY));
   ```
@@ -460,18 +484,37 @@ public class DeliveryNoteController {
   ```java
   table.addCell(OpenPdfCellFactory.createDataCell("MCU-STM32", fontProvider.getBodyRegular(), Element.ALIGN_LEFT, rowBg, border));
   ```
-* **客戶網格資訊儲存格 (4 欄式 Label + Value)**：
+* **無邊框文字儲存格 (`createBorderlessCell`)**：
   ```java
-  OpenPdfCellFactory.addInfoCell(grid, "客戶名稱：", labelFont, true, labelBg, border);
+  table.addCell(OpenPdfCellFactory.createBorderlessCell(new Phrase("小計：", fontProvider.getBodyBold()), Element.ALIGN_RIGHT, 0f, 4f));
+  ```
+* **通用鍵值對儲存格 (`addKeyValueCell`)**：
+  ```java
+  // 自動依序加入 Label 儲存格與 Value 儲存格至目標 Table
+  OpenPdfCellFactory.addKeyValueCell(grid, "客戶名稱：", data.customerName(), labelFont, valFont, labelBg, Color.WHITE, border);
   ```
 * **水平裝飾分隔線**：
   ```java
   document.add(OpenPdfCellFactory.createSeparatorTable(OpenPdfStylePalette.ACCENT_BLUE, 2f, 8f, 8f));
   ```
-* **右側小計/稅額計算列**：
-  ```java
-  OpenPdfCellFactory.addCalcRow(calcTable, "未稅合計：", "NT$ 10,000", regular, bold, false, null);
-  ```
+* **已棄用方法**：`addInfoCell`（請改用 `addKeyValueCell`）與 `addCalcRow`（請改用 `createBorderlessCell` 自行組裝）。
+
+### 3.4 頁首頁尾與雙階段總頁數控制器 (`OpenPdfPageEventHelper`)
+
+作為通用排版基底類別，提供以下生命週期擴充鈎子與輔助方法：
+* **`onDrawHeader(PdfWriter, Document)`**：頁首繪製鈎子，供自訂頁首商標或文案。
+* **`onDrawFooter(PdfWriter, Document)`**：頁尾繪製鈎子，供自訂頁尾排版與頁碼格式。
+* **`onFillTotalPages(PdfWriter, Document)`**：文件關閉前填寫總頁數之鈎子。
+* **`drawFooterPageNumberWithTemplate(writer, font, prefixText, x, y)`**：一鍵印製頁碼前綴並保留總頁數佔位符。
+* **`fillTotalPagesTemplate(writer, font, xOffset, yOffset)`**：一鍵將實際總頁數填入佔位符。
+
+### 3.5 通用浮水印樣式 (`OpenPdfWatermarkStyle`)
+
+提供業務中立之浮水印視覺參數配置，支援 Builder 與通用預設樣式：
+* `OpenPdfWatermarkStyle.DEFAULT`：淡灰 50pt 斜角通用文字浮水印。
+* `OpenPdfWatermarkStyle.CONFIDENTIAL`：紅色外框、旋轉 45 度之「CONFIDENTIAL / 機密文件」樣式。
+* `OpenPdfWatermarkStyle.DRAFT`：橘色外框之「DRAFT / 草稿」樣式。
+* **業務專屬樣式**：各 Template 可於自身內部定義（如 `BomQuotationPdfTemplate.BOM_QUOTATION_WATERMARK_STYLE`），透過 Builder 自行微調字級、透明度、外框與副標題。
 
 ---
 

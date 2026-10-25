@@ -63,23 +63,53 @@ public final class OpenPdfCellFactory {
 	}
 
 	/**
-	 * 加入客戶或交易資訊網格儲存格 (標籤或值)
+	 * 建立無邊框儲存格 (常用於小計合計、備註列表、按鍵佈局等自訂排版)
+	 *
+	 * @param text      文字內容
+	 * @param font      字型
+	 * @param alignment 水平對齊方式 (如 Element.ALIGN_RIGHT)
+	 * @param bgColor   背景顏色 (若為 null 則透明無背景)
+	 * @return PdfPCell 實例
+	 */
+	public static PdfPCell createBorderlessCell(String text, Font font, int alignment, Color bgColor) {
+		PdfPCell cell = new PdfPCell(new Phrase(text != null ? text : "", font));
+		cell.setBorder(Rectangle.NO_BORDER);
+		cell.setHorizontalAlignment(alignment);
+		cell.setPadding(3f);
+		if (bgColor != null) {
+			cell.setBackgroundColor(bgColor);
+		}
+		return cell;
+	}
+
+	/**
+	 * 加入標準鍵值對 (Key-Value) 網格儲存格
 	 *
 	 * @param table       目標 PdfPTable
 	 * @param text        顯示文字
 	 * @param font        字體
-	 * @param isLabel     是否為標籤欄位 (標籤向右對齊，內容值向左對齊)
+	 * @param isKey       是否為鍵/標籤欄位 (鍵向右對齊，值向左對齊)
 	 * @param bgColor     背景底色
 	 * @param borderColor 邊線顏色
 	 */
-	public static void addInfoCell(PdfPTable table, String text, Font font, boolean isLabel, Color bgColor, Color borderColor) {
+	public static void addKeyValueCell(PdfPTable table, String text, Font font, boolean isKey, Color bgColor, Color borderColor) {
 		PdfPCell cell = new PdfPCell(new Phrase(text != null ? text : "", font));
 		cell.setBackgroundColor(bgColor);
 		cell.setBorderColor(borderColor);
 		cell.setPadding(4f);
-		cell.setHorizontalAlignment(isLabel ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT);
+		cell.setHorizontalAlignment(isKey ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT);
 		cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
 		table.addCell(cell);
+	}
+
+	/**
+	 * 加入客戶或交易資訊網格儲存格 (標籤或值)
+	 *
+	 * @deprecated 請改用通用語意之 {@link #addKeyValueCell(PdfPTable, String, Font, boolean, Color, Color)}。
+	 */
+	@Deprecated
+	public static void addInfoCell(PdfPTable table, String text, Font font, boolean isLabel, Color bgColor, Color borderColor) {
+		addKeyValueCell(table, text, font, isLabel, bgColor, borderColor);
 	}
 
 	/**
@@ -92,25 +122,12 @@ public final class OpenPdfCellFactory {
 	 * @param valFont   金額字體
 	 * @param isTotal   是否為總計列 (若是則上底色)
 	 * @param totalBg   總計底色
+	 * @deprecated 涉及特定 2 欄合計結構排版，建議業務範本自行調用 {@link #createBorderlessCell} 組裝或收斂於各範本內部。
 	 */
+	@Deprecated
 	public static void addCalcRow(PdfPTable table, String label, String value, Font labelFont, Font valFont, boolean isTotal, Color totalBg) {
-		PdfPCell cLabel = new PdfPCell(new Phrase(label != null ? label : "", labelFont));
-		cLabel.setBorder(Rectangle.NO_BORDER);
-		cLabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
-		cLabel.setPadding(3f);
-
-		PdfPCell cVal = new PdfPCell(new Phrase(value != null ? value : "", valFont));
-		cVal.setBorder(Rectangle.NO_BORDER);
-		cVal.setHorizontalAlignment(Element.ALIGN_RIGHT);
-		cVal.setPadding(3f);
-
-		if (isTotal && totalBg != null) {
-			cLabel.setBackgroundColor(totalBg);
-			cVal.setBackgroundColor(totalBg);
-		}
-
-		table.addCell(cLabel);
-		table.addCell(cVal);
+		table.addCell(createBorderlessCell(label, labelFont, Element.ALIGN_RIGHT, isTotal ? totalBg : null));
+		table.addCell(createBorderlessCell(value, valFont, Element.ALIGN_RIGHT, isTotal ? totalBg : null));
 	}
 
 	/**

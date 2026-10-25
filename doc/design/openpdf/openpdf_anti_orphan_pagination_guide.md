@@ -151,7 +151,7 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
 }
 ```
 
-### 4.2 `BomQuotationPdfTemplate.java`（動態排版實作）
+### 4.2 `BomQuotationPdfTemplate.java`（動態排版實作，位於 `infrastructure/openpdf/template/impl/`）
 
 ```java
 private void renderBomAndFooterSections(Document document, PdfWriter writer,
@@ -247,10 +247,10 @@ private void renderBomAndFooterSections(Document document, PdfWriter writer,
 
 未來開發新單據（如「出貨單 DeliveryNote」或「採購單 PurchaseOrder」）時，請依照下列 SOP 套用防孤兒機制：
 
-1. **實例化 PageEventHelper**：
-   在範本 `render` 開始時掛載 `OpenPdfPageEventHelper`：
+1. **實例化或擴充 PageEventHelper**：
+   在範本 `render` 開始時掛載 `OpenPdfPageEventHelper`；若需客製化專屬頁尾頁碼文案，可定義內部類別繼承 `OpenPdfPageEventHelper` 並覆寫 `onDrawFooter` 與 `onFillTotalPages`（調用樣板方法 `drawFooterPageNumberWithTemplate` 與 `fillTotalPagesTemplate`）：
    ```java
-   OpenPdfPageEventHelper pageEvent = new OpenPdfPageEventHelper(fontProvider.getBaseFont());
+   OpenPdfPageEventHelper pageEvent = new MyCustomPageEventHelper(fontProvider);
    writer.setPageEvent(pageEvent);
    ```
 2. **建立結尾複合區塊**：

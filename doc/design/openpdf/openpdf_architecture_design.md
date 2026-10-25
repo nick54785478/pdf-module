@@ -39,14 +39,14 @@ graph TD
         Adapter["OpenPdfQuotationAdapter<br/>(實作 QuotationPdfPort)"]
         
         subgraph Templates ["Business Templates (業務範本層)"]
-            Template["BomQuotationPdfTemplate<br/>(物料清單報價單版面編排)"]
+            Template["BomQuotationPdfTemplate<br/>(物料清單報價單版面編排與專屬頁碼)"]
         end
 
         subgraph CoreBlocks ["OpenPDF Core Building Blocks (通用排版積木)"]
             FontProvider["OpenPdfFontProvider<br/>(字體快取與載入管理)"]
             StylePalette["OpenPdfStylePalette<br/>(企業調色盤與幾何常量)"]
             CellFactory["OpenPdfCellFactory<br/>(標籤/數值/合計儲存格工廠)"]
-            PageEventHelper["OpenPdfPageEventHelper<br/>(頁碼「第X頁/共Y頁」與頁首尾)"]
+            PageEventHelper["OpenPdfPageEventHelper<br/>(頁首頁尾生命週期鈎子與總頁數填寫)"]
         end
     end
 
@@ -135,12 +135,13 @@ public interface QuotationPdfPort {
   - `createKeyValRow(table, key, val, ...)`：雙欄鍵值對資訊框
   - `createSeparator(color, thickness)`：全寬度裝飾分隔線
 
-#### ④ 分頁與頁碼控制器：`OpenPdfPageEventHelper`
-- **職責**：實作 OpenPDF 的 `PdfPageEventHelper`。
+#### ④ 基礎分頁事件處理器：`OpenPdfPageEventHelper`
+- **職責**：實作 OpenPDF 的 `PdfPageEventHelper`，作為通用分頁與排版度量基底類別。
 - **功能**：
-  - 於文件渲染完成時（`onCloseDocument`），利用 `PdfTemplate` 延遲計算並填入「第 X 頁 / 共 Y 頁」精確總頁數。
-  - **防偽浮水印原生印製 (In-flight Watermark Rendering)**：在頁面換頁時（`onEndPage`），透過座標旋轉矩陣（`concatCTM`）於最底層畫布（`DirectContentUnder`）繪製傾斜文字，並支援**防偽鋼印雙線圓角外框**與**企業專屬副標**，零額外 I/O 與零二次解析開銷。
-  - **防孤兒區塊度量支援**：提供當前頁剩餘垂直高度計算（`getRemainingVerticalSpace`）與主動防孤兒換頁（`ensureSpaceOrNewPage`）。
+  - **範本方法鈎子 (Template Method Hooks)**：提供 `onDrawHeader`、`onDrawFooter` 與 `onFillTotalPages` 擴充點，交由具體單據範本自主定義頁首尾排版與座標，`core` 積木不再硬編碼特定單據格式。
+  - **兩階段頁碼輔助方法**：提供 `drawFooterPageNumberWithTemplate` 與 `fillTotalPagesTemplate`，封裝底層 `PdfTemplate` 延遲計算與矩陣貼附樣板代碼。
+  - **防偽浮水印原生印製 (In-flight Watermark Rendering)**：在頁面結束時（`onEndPage`），透過座標旋轉矩陣（`concatCTM`）於最底層畫布（`DirectContentUnder`）繪製傾斜文字，並支援防偽鋼印雙線圓角外框與企業副標，零額外 I/O 與零二次解析開銷。
+  - **防孤兒區塊度量支援**：提供當前頁剩餘垂直可用高度計算（`getRemainingVerticalSpace`）、表格高度精確測量（`calculateTableHeight`）與主動防孤兒換頁決策（`ensureSpaceOrNewPage`）。
 
 #### ⑤ 浮水印視覺樣式配置值物件：`OpenPdfWatermarkStyle`
 - **檔案路徑**：`src/main/java/com/example/demo/infrastructure/openpdf/core/OpenPdfWatermarkStyle.java`
@@ -151,16 +152,16 @@ public interface QuotationPdfPort {
   - `rotation`：旋轉角度 (度數，預設 45f)
   - `boxed`：是否啟用防偽圓角鋼印邊框 (boolean，預設 false)
   - `subText`：可選次級防偽標註文字 (例如企業英文防偽標記)
-- **內建標準樣式**：
+- **通用標準樣式**：
   - `DEFAULT`：經典標準樣式 (46pt, 0.07f, 深灰, 45度, 無外框)
-  - `BOM_QUOTATION`：BOM 報價單尊榮防偽鋼印樣式 (42pt, 0.075f, 企業深海軍藍 `PRIMARY_NAVY`, 45度, 雙線圓角鋼印外框, 晨星智造英文副標)
   - `CONFIDENTIAL`：機密文件樣式 (48pt, 0.10f, 醒目緋紅, 45度, 帶外框, "CONFIDENTIAL & PROPRIETARY")
   - `DRAFT`：草稿樣式 (46pt, 0.08f, 灰藍色, 45度)
+  - *註：特定單據專屬樣式（如 BOM 尊榮鋼印）由各具體範本透過 `OpenPdfWatermarkStyle.builder()` 自主組裝，嚴守開閉原則。*
 
 ---
 
 ### 3.3 基礎設施層：業務專屬範本 (Business Templates)
-位於 `infrastructure/openpdf/template/`。每個業務單據擁有獨立的 Template 類別。
+位於 `infrastructure/openpdf/template/`。每個業務單據擁有獨立的 Template 實作類別（位於 `template/impl/`）。
 
 #### 抽象範本契約：`PdfDocumentTemplate<T>`
 ```java
@@ -196,13 +197,16 @@ public interface PdfDocumentTemplate<T> {
 ```
 
 #### 物料清單報價單範本：`BomQuotationPdfTemplate`
+- **檔案路徑**：`src/main/java/com/example/demo/infrastructure/openpdf/template/impl/BomQuotationPdfTemplate.java`
 - **職責**：接收 `QuotationGottenResult`，按順序組裝：
   1. `renderHeader(doc, data)`：公司中英文標頭與報價單號
   2. `renderCustomerGrid(doc, data)`：客戶與交期付款條款網格
   3. `renderBomAndFooterSections(doc, writer, helper, data)`：BOM 智慧防孤兒物料清單與結尾複合區塊協同渲染
-- **專屬浮水印樣式**：
-  - 覆寫 `getWatermarkStyle()` 回傳 `OpenPdfWatermarkStyle.BOM_QUOTATION`。
-  - 當外部傳入浮水印文字時，自動為報價單加蓋帶有深海軍藍雙線圓角鋼印邊框與 `"MORNING STAR INTELLIGENT • BOM QUOTATION"` 英文副標的專屬戳印。
+- **專屬浮水印樣式自治**：
+  - 於範本內部透過 `OpenPdfWatermarkStyle.builder()` 自主組裝 `BOM_QUOTATION_WATERMARK_STYLE`（42pt, 0.075f, 企業深海軍藍 `PRIMARY_NAVY`, 45度, 雙線圓角鋼印外框, `"MORNING STAR INTELLIGENT • BOM QUOTATION"` 英文副標）。
+  - 覆寫 `getWatermarkStyle()` 回傳專屬樣式，外部呼叫端僅需傳入浮水印文字即可自動印製專屬鋼印。
+- **專屬分頁控制器內聚**：
+  - 內部定義 `BomQuotationPageEventHelper` 繼承 `OpenPdfPageEventHelper`，覆寫 `onDrawFooter` 與 `onFillTotalPages`，將「第 X 頁 / 共 Y 頁」排版與精確座標 `(document.right() - 55pt, 18pt)` 內聚於範本內部。
 
 ---
 
@@ -311,8 +315,8 @@ flowchart TD
         subgraph Track1 ["軌道一：生成時一次印製 (Single-pass Zero Overhead)"]
             AdapterGen["OpenQuotationPdfGeneratorAdapter"]
             Template["BomQuotationPdfTemplate"]
-            Style["OpenPdfWatermarkStyle (BOM_QUOTATION 專屬鋼印樣式)"]
-            Helper["OpenPdfPageEventHelper (onEndPage 原生繪製)"]
+            Style["OpenPdfWatermarkStyle (自定義樣式或通用預設樣式)"]
+            Helper["BomQuotationPageEventHelper (繼承 OpenPdfPageEventHelper)"]
         end
 
         subgraph Track2 ["軌道二：後製通用蓋印 (Post-processing Stamper)"]
@@ -401,9 +405,10 @@ src/main/java/com/example/demo/
         │   ├── OpenPdfWatermarkStyle.java           # 浮水印視覺樣式值物件 (支援防偽鋼印與副標)
         │   └── OpenPdfPageEventHelper.java          # 頁首尾、頁碼與防偽鋼印浮水印事件
         │
-        └── template/                                # 【業務專屬範本】
+        └── template/                                # 【業務範本層】
             ├── PdfDocumentTemplate.java             # 範本通用抽象契約 (提供 getWatermarkStyle Hook)
-            └── BomQuotationPdfTemplate.java         # 物料清單報價單版面實作 (內建 BOM 專屬鋼印樣式)
+            └── impl/                                # 【具體範本實作】
+                └── BomQuotationPdfTemplate.java     # 物料清單報價單版面實作 (內建 BOM 專屬鋼印樣式與 BomQuotationPageEventHelper)
 ```
 
 ---

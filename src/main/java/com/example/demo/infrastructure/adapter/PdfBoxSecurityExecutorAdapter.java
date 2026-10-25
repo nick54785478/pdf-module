@@ -149,6 +149,15 @@ public class PdfBoxSecurityExecutorAdapter implements PdfSecurityExecutorPort {
 		} catch (IllegalArgumentException iae) {
 			throw iae;
 		} catch (Exception e) {
+			// 防禦性檢查例外原因鏈是否包含 InvalidPasswordException
+			Throwable cause = e;
+			while (cause != null) {
+				if (cause instanceof InvalidPasswordException) {
+					log.warn("【PDFBox 引擎】解密失敗：偵測到底層密碼錯誤 (from cause chain)");
+					throw new IllegalArgumentException("PDF 解密失敗：密碼錯誤或未授權存取", cause);
+				}
+				cause = cause.getCause();
+			}
 			log.error("【PDFBox 引擎】PDF 解密過程發生異常: {}", e.getMessage(), e);
 			throw new RuntimeException("PDF 解密處理失敗: " + e.getMessage(), e);
 		}

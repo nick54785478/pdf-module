@@ -12,18 +12,20 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfTemplate;
 import com.lowagie.text.pdf.PdfWriter;
 
-import java.awt.*;
+import java.awt.Color;
 
 /**
- * OpenPDF 分頁與動態頁碼事件處理器 (Page Event Helper)
+ * OpenPDF 基礎分頁與版面事件處理器 (Base Page Event Helper)
  * <p>
- * 實作 {@link PdfPageEventHelper}，核心職責包含：
- * 1. 兩階段渲染機制 (Two-pass via PdfTemplate) 動態計算並填入「第 X 頁 / 共 Y 頁」精確總頁數。
- * 2. 頁首頁尾繪製及可選的半透明防偽浮水印（Watermark）。
- * 3. <b>防孤兒區塊 (Anti-Orphan Block) 排版度量支援</b>：提供頁面剩餘垂直可用高度計算
+ * 實作 {@link PdfPageEventHelper}，作為六角形架構中 OpenPDF 通用排版核心積木：
+ * 1. 兩階段渲染機制 (Two-pass via {@link PdfTemplate}) 支援動態延遲填寫總頁數佔位符。
+ * 2. 頁面事件生命週期鈎子 (Template Method Pattern)：提供 {@link #onDrawHeader}、{@link #onDrawFooter}
+ *    與 {@link #onFillTotalPages} 擴充點，交由具體業務單據範本（如報價單、出貨單）自由自訂頁首頁尾排版。
+ * 3. 通用防偽浮水印渲染 ({@link #drawWatermark})：完全解耦業務文字，支援任意 {@link OpenPdfWatermarkStyle} 樣式。
+ * 4. <b>防孤兒區塊 (Anti-Orphan Block) 排版度量支援</b>：提供頁面剩餘垂直可用高度計算
  *    ({@link #getRemainingVerticalSpace})、主動防孤兒換頁決策 ({@link #ensureSpaceOrNewPage})
  *    以及精準表格高度測量 ({@link #calculateTableHeight})。
- * 4. 追蹤當前頁面已渲染之資料行數，杜絕下方結尾區塊（合計、條款、簽核）孤立在新頁之排版缺陷。
+ * 5. 追蹤當前頁面已渲染之資料行數，杜絕下方結尾區塊（合計、條款、簽核）孤立在新頁之排版缺陷。
  * </p>
  */
 @Slf4j
@@ -152,6 +154,18 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
         return table.getTotalHeight();
     }
 
+    public BaseFont getBaseFont() {
+        return baseFont;
+    }
+
+    public PdfTemplate getTotalPagesTemplate() {
+        return totalPagesTemplate;
+    }
+
+    public int getTotalPages() {
+        return totalPages;
+    }
+
     @Override
     public void onEndPage(PdfWriter writer, Document document) {
         this.totalPages = writer.getPageNumber();
@@ -162,52 +176,127 @@ public class OpenPdfPageEventHelper extends PdfPageEventHelper {
             drawWatermark(writer, document, watermarkText);
         }
 
-        // 2. 繪製頁尾「第 X 頁 / 共 Y 頁」
-        drawFooterPageNumber(writer, document, cb);
+        // 2. 觸發頁首繪製鈎子 (交由具體單據範本擴充)
+        onDrawHeader(writer, document, cb);
+
+        // 3. 觸發頁尾繪製鈎子 (交由具體單據範本自訂)
+        onDrawFooter(writer, document, cb);
     }
 
     @Override
     public void onCloseDocument(PdfWriter writer, Document document) {
-        // 文件關閉時將計算出的總頁數寫入 PdfTemplate
+        // 觸發文件關閉與總頁數填寫鈎子 (交由具體單據範本自訂)
+        onFillTotalPages(writer, document, totalPagesTemplate, totalPages);
+    }
+
+    /**
+     * 頁首繪製擴充鈎子 (Template Method Hook)
+     * <p>
+     * 預設為空實作。具體單據範本可覆寫此方法，繪製該單據專屬之重複頁首標頭、LOGO 或文件標記。
+     * </p>
+     *
+     * @param writer   PDF 寫入器
+     * @param document 當前文件實例
+     * @param cb       直接內容畫布 (DirectContent)
+     */
+    protected void onDrawHeader(PdfWriter writer, Document document, PdfContentByte cb) {
+        // 預設為空實作，由具體單據範本覆寫自訂
+    }
+
+    /**
+     * 頁尾繪製擴充鈎子 (Template Method Hook)
+     * <p>
+     * 預設為空實作。具體單據範本可覆寫此方法，繪製該單據專屬之頁尾排版（例如「第 X 頁 / 共 Y 頁」、特定座標與樣式）。
+     * </p>
+     *
+     * @param writer   PDF 寫入器
+     * @param document 當前文件實例
+     * @param cb       直接內容畫布 (DirectContent)
+     */
+    protected void onDrawFooter(PdfWriter writer, Document document, PdfContentByte cb) {
+        // 預設為空實作，由具體單據範本覆寫自訂
+    }
+
+    /**
+     * 總頁數範本填寫擴充鈎子 (Template Method Hook)
+     * <p>
+     * 預設為空實作。具體單據範本若使用兩階段渲染總頁數，可覆寫此方法將最終總頁數填入 PdfTemplate。
+     * </p>
+     *
+     * @param writer             PDF 寫入器
+     * @param document           當前文件實例
+     * @param totalPagesTemplate 總頁數佔位範本
+     * @param totalPages         計算得出之總頁數
+     */
+    protected void onFillTotalPages(PdfWriter writer, Document document, PdfTemplate totalPagesTemplate, int totalPages) {
+        // 預設為空實作，由具體單據範本覆寫自訂
+    }
+
+    /**
+     * 於指定座標繪製帶有兩階段總頁數佔位符的標準頁碼輔助方法
+     * <p>
+     * 封裝 OpenPDF 底層繪製當前頁碼與掛載 {@link PdfTemplate} 之樣板代碼，
+     * 提供具體範本在 {@link #onDrawFooter} 中快速調用。
+     * </p>
+     *
+     * @param cb              直接內容畫布
+     * @param currentPageText 當前頁碼前置文字 (例如 "第 1 頁 / 共 ")
+     * @param fontSize        字型大小
+     * @param fontColor       字型顏色
+     * @param startX          文字起始 X 座標
+     * @param startY          文字基準 Y 座標
+     */
+    protected void drawFooterPageNumberWithTemplate(PdfContentByte cb, String currentPageText,
+                                                   float fontSize, Color fontColor,
+                                                   float startX, float startY) {
+        if (baseFont == null || totalPagesTemplate == null || cb == null) {
+            return;
+        }
+
+        float textSize = baseFont.getWidthPoint(currentPageText, fontSize);
+
+        cb.saveState();
+        cb.beginText();
+        cb.setFontAndSize(baseFont, fontSize);
+        if (fontColor != null) {
+            cb.setColorFill(fontColor);
+        }
+        cb.setTextMatrix(startX, startY);
+        cb.showText(currentPageText);
+        cb.endText();
+
+        // 將總頁數範本貼在當前頁碼文字之後
+        cb.addTemplate(totalPagesTemplate, startX + textSize, startY);
+        cb.restoreState();
+    }
+
+    /**
+     * 將總頁數文字填入 PdfTemplate 的輔助方法
+     * <p>
+     * 封裝 OpenPDF 底層在文件關閉時將計算出之總頁數填入佔位範本之樣板代碼，
+     * 提供具體範本在 {@link #onFillTotalPages} 中快速調用。
+     * </p>
+     *
+     * @param totalPagesText 總頁數後綴文字 (例如 "2 頁" 或 "2")
+     * @param fontSize       字型大小
+     * @param fontColor      字型顏色
+     */
+    protected void fillTotalPagesTemplate(String totalPagesText, float fontSize, Color fontColor) {
         if (totalPagesTemplate != null && baseFont != null) {
             totalPagesTemplate.beginText();
-            totalPagesTemplate.setFontAndSize(baseFont, 8f);
-            totalPagesTemplate.setColorFill(OpenPdfStylePalette.TEXT_MUTED);
-            totalPagesTemplate.showText(totalPages + " 頁");
+            totalPagesTemplate.setFontAndSize(baseFont, fontSize);
+            if (fontColor != null) {
+                totalPagesTemplate.setColorFill(fontColor);
+            }
+            totalPagesTemplate.showText(totalPagesText);
             totalPagesTemplate.endText();
         }
     }
 
     /**
-     * 於頁底右側繪製當前頁碼與總頁數佔位符
-     */
-    private void drawFooterPageNumber(PdfWriter writer, Document document, PdfContentByte cb) {
-        if (baseFont == null || totalPagesTemplate == null) {
-            return;
-        }
-
-        String currentPageText = "第 " + writer.getPageNumber() + " 頁 / 共 ";
-        float textSize = baseFont.getWidthPoint(currentPageText, 8f);
-        float textBaseY = 18f;
-        float startX = document.right() - 55f;
-
-        cb.saveState();
-        cb.beginText();
-        cb.setFontAndSize(baseFont, 8f);
-        cb.setColorFill(OpenPdfStylePalette.TEXT_MUTED);
-        cb.setTextMatrix(startX, textBaseY);
-        cb.showText(currentPageText);
-        cb.endText();
-
-        // 將總頁數範本貼在當前頁碼文字之後
-        cb.addTemplate(totalPagesTemplate, startX + textSize, textBaseY);
-        cb.restoreState();
-    }
-
-    /**
      * 於頁面中央繪製傾斜半透明浮水印 (依據 watermarkStyle 樣式屬性，支援次級副標與防偽鋼印外框)
      */
-    private void drawWatermark(PdfWriter writer, Document document, String text) {
+    protected void drawWatermark(PdfWriter writer, Document document, String text) {
         try {
             OpenPdfWatermarkStyle style = getWatermarkStyle();
             PdfContentByte under = writer.getDirectContentUnder();

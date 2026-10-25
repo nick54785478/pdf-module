@@ -7,7 +7,7 @@ import java.awt.Color;
  * <p>
  * 封裝浮水印在 PDF 頁面中渲染時的外觀屬性，包含字型大小 (fontSize)、不透明度 (opacity)、
  * 填色 (color)、傾斜旋轉角度 (rotation)、防偽外框裝飾 (boxed) 以及次級防偽標記副標 (subText)。
- * 採用不可變物件 (Immutable Object) 設計，並提供開箱即用的預設樣式、專屬 BOM 鋼印樣式與 Fluent Builder 構造器。
+ * 採用不可變物件 (Immutable Object) 設計，並提供開箱即用的通用預設樣式 (DEFAULT, CONFIDENTIAL, DRAFT) 與 Fluent Builder 構造器。
  * </p>
  *
  * @param fontSize 字型大小 (pt，預設 46f)
@@ -31,22 +31,6 @@ public record OpenPdfWatermarkStyle(
 	 */
 	public static final OpenPdfWatermarkStyle DEFAULT = new OpenPdfWatermarkStyle(
 			46f, 0.07f, Color.DARK_GRAY, 45f, false, null
-	);
-
-	/**
-	 * BOM 物料清單報價單專屬尊榮防偽鋼印浮水印樣式
-	 * <p>
-	 * 融合企業品牌深海軍藍 (Primary Navy)、精準 42pt 主標、圓角防偽鋼印雙線邊框、
-	 * 以及晨星智造英文防偽標記 "MORNING STAR INTELLIGENT • BOM QUOTATION"。
-	 * </p>
-	 */
-	public static final OpenPdfWatermarkStyle BOM_QUOTATION = new OpenPdfWatermarkStyle(
-			42f,
-			0.075f,
-			OpenPdfStylePalette.PRIMARY_NAVY,
-			45f,
-			true,
-			"MORNING STAR INTELLIGENT • BOM QUOTATION"
 	);
 
 	/**

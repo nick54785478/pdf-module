@@ -416,12 +416,12 @@ public SignPdfCommand toSignCommand(
 }
 ```
 
-#### (3) 單據範本規範定義 (Template Method) - [BomQuotationPdfTemplate.java](file:///d:/桌面/ModuleWorkSpace/pdf-module/src/main/java/com/example/demo/infrastructure/openpdf/template/BomQuotationPdfTemplate.java)
+#### (3) 單據範本規範定義 (Template Method) - [BomQuotationPdfTemplate.java](file:///d:/桌面/ModuleWorkSpace/pdf-module/src/main/java/com/example/demo/infrastructure/openpdf/template/impl/BomQuotationPdfTemplate.java)
 具體單據範本直接覆寫規範與視覺客製器 Hook，達到業務差異化隔離：
 
 ```java
 @Component
-public class BomQuotationPdfTemplate extends PdfDocumentTemplate<QuotationGottenResult> {
+public class BomQuotationPdfTemplate implements PdfDocumentTemplate<QuotationGottenResult> {
 
     @Override
     public String getTemplateName() {

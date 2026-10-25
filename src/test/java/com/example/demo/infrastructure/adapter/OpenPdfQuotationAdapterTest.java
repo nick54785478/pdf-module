@@ -2,6 +2,7 @@ package com.example.demo.infrastructure.adapter;
 
 import com.example.demo.application.shared.dto.QuotationGottenResult;
 import com.example.demo.application.shared.dto.QuotationItemGottenResult;
+import com.example.demo.infrastructure.openpdf.template.impl.BomQuotationPdfTemplate;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -38,7 +39,7 @@ class OpenPdfQuotationAdapterTest {
 	private OpenQuotationPdfGeneratorAdapter openPdfQuotationAdapter;
 
 	@Autowired
-	private com.example.demo.infrastructure.openpdf.template.BomQuotationPdfTemplate bomQuotationPdfTemplate;
+	private BomQuotationPdfTemplate bomQuotationPdfTemplate;
 
 	/**
 	 * Feature: OpenPDF 報價單 PDF 生成

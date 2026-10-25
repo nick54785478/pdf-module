@@ -41,6 +41,12 @@ public final class OpenPdfStylePalette {
 	/** 輕量卡片背景淺灰 */
 	public static final Color CARD_BG_LIGHT = new Color(250, 250, 250);
 
-	/** 總計列柔和底色 */
-	public static final Color TOTAL_BG_LIGHT = new Color(254, 242, 242);
+	/** 柔和淺粉紅底色 (用於警示、強調或金額總計列底色) */
+	public static final Color BG_SOFT_RED = new Color(254, 242, 242);
+
+	/**
+	 * @deprecated 請改用 {@link #BG_SOFT_RED}，維持設計系統色彩 Token 的通用性與業務無關性。
+	 */
+	@Deprecated
+	public static final Color TOTAL_BG_LIGHT = BG_SOFT_RED;
 }
