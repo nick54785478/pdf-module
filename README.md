@@ -75,6 +75,7 @@ src/main/java/com/example/demo/
 │   │       ├── ReportGeneratorPort.java             # 報表生成輸出端口 (業務語意)
 │   │       ├── PdfWatermarkExecutorPort.java        # PDF 通用浮水印蓋印輸出端口
 │   │       ├── PdfSecurityExecutorPort.java         # PDF 安全加密、解密與數位簽章輸出端口
+│   │       ├── PdfImageExtractorPort.java           # PDF 圖片抽取輸出端口 (單圖/批次/ZIP 封裝)
 │   │       └── package-info.java
 │   ├── service/                                     # 應用服務 (實作 UseCase 介面，協調流程)
 │   │   └── QuotationApplicationService.java         # 報價單業務應用服務 (Inbound Adapter)
@@ -97,6 +98,7 @@ src/main/java/com/example/demo/
 │   │   │   ├── QuotationItemGottenResult.java       # 報價單物料明細項目載體
 │   │   │   ├── PdfTextPositionGottenResult.java     # 文字座標查詢結果 DTO
 │   │   │   ├── PdfColumnRect.java                   # 表格欄位區域定義 DTO
+│   │   │   ├── PdfImageGottenResult.java            # PDF 抽取圖片資料傳輸載體 (包含二進位與 Base64)
 │   │   │   └── package-info.java
 │   │   └── package-info.java
 │   ├── view/                                        # 查詢投影物件 (純資料載體，提供唯讀投影)
@@ -141,6 +143,7 @@ src/main/java/com/example/demo/
 │       ├── OpenPdfWatermarkExecutorAdapter.java     # 實作 PdfWatermarkExecutorPort 之通用浮水印蓋印適配器
 │       ├── OpenPdfSecurityExecutorAdapter.java      # 實作 PdfSecurityExecutorPort 之 OpenPDF 安全適配器
 │       ├── PdfBoxSecurityExecutorAdapter.java       # @Primary 實作 PdfSecurityExecutorPort (全面接納 PDFBox 核心引擎)
+│       ├── PdfBoxImageExtractorAdapter.java         # 實作 PdfImageExtractorPort 之 PDFBox 圖片抽取適配器
 │       └── package-info.java
 │
 ├── presentation/                                    # 表現層 (Presentation Layer - Inbound Adapters)
@@ -280,10 +283,10 @@ src/test/java/com/example/demo/
 | **3. Event** | `N + Ved + Event` | `PdfGeneratedEvent`, `PdfProcessedEvent` |
 | **4. Command** | `V + N + Command` | `ParseQuotationPdfCommand`, `AddWatermarkCommand`, `EncryptPdfCommand`, `DecryptPdfCommand`, `SignPdfCommand` |
 | **5. Query** | `V + N + Query` | `GetQuotationQuery`, `GetPdfQuery` |
-| **6. Dto** | `N + Gotten/Searched + Result` | `QuotationGottenResult`, `QuotationItemGottenResult`, `PdfTextPositionGottenResult` |
+| **6. Dto** | `N + Gotten/Searched + Result` | `QuotationGottenResult`, `QuotationItemGottenResult`, `PdfTextPositionGottenResult`, `PdfImageGottenResult` |
 | **7. Projection** | `N + Gotten/Searched + View` | `PdfGottenView`, `PdfSearchedView` |
-| **8. Port** | In: `... + UseCase`<br>Out: `... + Port` | In: `GenerateQuotationPdfUseCase`, `GenerateTemplateQuotationPdfUseCase`, `ParseQuotationPdfUseCase`, `AddWatermarkUseCase`, `EncryptPdfUseCase`, `DecryptPdfUseCase`, `SignPdfUseCase`<br>Out: `QuotationPdfGeneratorPort`, `ReportGeneratorPort`, `QuotationParserPort`, `PdfExtractorPort`, `PdfWatermarkExecutorPort`, `PdfSecurityExecutorPort`, `MockServicePort` |
-| **9. Adapter** | In: `... + ApplicationService`<br>Out: `... + Adapter` | In: `QuotationApplicationService`<br>Out: `OpenQuotationPdfGeneratorAdapter`, `BirtReportAdapter`, `TextQuotationParserAdapter`, `PdfExtractorAdapter`, `OpenPdfWatermarkExecutorAdapter`, `PdfBoxSecurityExecutorAdapter`, `OpenPdfSecurityExecutorAdapter`, `MockServiceAdapter` |
+| **8. Port** | In: `... + UseCase`<br>Out: `... + Port` | In: `GenerateQuotationPdfUseCase`, `GenerateTemplateQuotationPdfUseCase`, `ParseQuotationPdfUseCase`, `AddWatermarkUseCase`, `EncryptPdfUseCase`, `DecryptPdfUseCase`, `SignPdfUseCase`<br>Out: `QuotationPdfGeneratorPort`, `ReportGeneratorPort`, `QuotationParserPort`, `PdfExtractorPort`, `PdfWatermarkExecutorPort`, `PdfSecurityExecutorPort`, `PdfImageExtractorPort`, `MockServicePort` |
+| **9. Adapter** | In: `... + ApplicationService`<br>Out: `... + Adapter` | In: `QuotationApplicationService`<br>Out: `OpenQuotationPdfGeneratorAdapter`, `BirtReportAdapter`, `TextQuotationParserAdapter`, `PdfExtractorAdapter`, `OpenPdfWatermarkExecutorAdapter`, `PdfBoxSecurityExecutorAdapter`, `OpenPdfSecurityExecutorAdapter`, `PdfBoxImageExtractorAdapter`, `MockServiceAdapter` |
 
 ---
 
