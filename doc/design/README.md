@@ -15,7 +15,8 @@ doc/design/
 ├── openpdf/                                           # 【OpenPDF 技術體系 - 程式化像素級排版】
 │   ├── openpdf_architecture_design.md                 # OpenPDF 報表與文件範本生成整體架構設計
 │   ├── custom_openpdf_template_guide.md               # 自定義業務單據範本開發實戰指南 (6-Step Workflow)
-│   └── openpdf_anti_orphan_pagination_guide.md        # 動態資料量智慧防孤兒區塊排版技術指南
+│   ├── openpdf_anti_orphan_pagination_guide.md        # 動態資料量智慧防孤兒區塊排版技術指南
+│   └── openpdf_saas_evolution_roadmap.md              # OpenPDF SaaS 多租戶架構演進與擴充規劃技術手冊
 │
 ├── birt/                                              # 【Eclipse BIRT 技術體系 - 視覺化範本驅動引擎】
 │   └── birt_pdf_module_operations_guide.md            # Eclipse BIRT 報表架構、範本維護與維運排障手冊
@@ -119,6 +120,9 @@ flowchart TD
 3. **[動態資料量智慧防孤兒區塊排版技術指南 (openpdf_anti_orphan_pagination_guide.md)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_anti_orphan_pagination_guide.md)**
    * **適合讀者**：處理報表分頁、版面微調與邊界排版問題之工程師。
    * **重點內容**：動態資料量數學模型、結尾複合區塊防拆原子化 (`setKeepTogether(true)`)、錨點明細牽引換頁演算法。
+4. **[OpenPDF SaaS 多租戶架構演進與擴充規劃技術手冊 (openpdf_saas_evolution_roadmap.md)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_saas_evolution_roadmap.md)**
+   * **適合讀者**：架構師、技術負責人、平台化研發團隊。
+   * **重點內容**：多租戶動態配色主題 (`TenantThemeContext`)、字型庫池化與雲端多層快取 (S3 + LRU)、宣告式 JSON Schema 範本解耦、非同步 Worker 集群與公平調度、動態 DLP 防洩密水印與 Cloud KMS 數位簽章、使用量計量與配額限流。
 
 ---
 
@@ -163,4 +167,7 @@ flowchart TD
   $\rightarrow$ 系統支援「雙軌協同架構」：OpenPDF 報表直接於 `generateQuotationPdf(quotation, "文字")` 生成當下單次繪製（零額外 I/O 與二次讀寫開銷，且自動套用 BOM 專屬防偽鋼印樣式）；若為 BIRT 報表或外部既有 PDF 上傳，則由 `PdfWatermarkExecutorPort.stampWatermark` 通用後製加蓋。詳情參照 [openpdf_architecture_design.md 3.6 節](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_architecture_design.md#36-浮水印雙軌協同架構-dual-track-watermark-architecture)。
 * **Q6：如何針對個別單據範本自定義專屬簽章規範？如果沒有指定會如何？**  
   $\rightarrow$ 全面採用 Apache PDFBox 核心引擎。各單據範本（`PdfDocumentTemplate`）可覆寫 `getSignaturePolicy()`、`getVisualSignatureCustomizer()` 等 Hook 方法自定義簽章（例如 `BomQuotationPdfTemplate` 預設採用 PAdES-BES 規範與專屬審批理由）；若呼叫端未指定或單據未定義，系統會自動 fallback 採用系統預設簽章規範。詳情參照 [pdfbox_security_signature_design.md](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/pdfbox/pdfbox_security_signature_design.md)。
+* **Q7：若未來要將 PDF 模組擴展為多租戶 SaaS 平台（支援不同企業客製配色、字型與自訂欄位），架構該如何演進？**  
+  $\rightarrow$ 請閱讀 [openpdf_saas_evolution_roadmap.md](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_saas_evolution_roadmap.md)，參考六大核心維度規格、演進對照矩陣與 5 階段落地里程碑。
+
 

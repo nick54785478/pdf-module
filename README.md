@@ -174,7 +174,8 @@ doc/
 │   ├── openpdf/                                     # 【OpenPDF 技術體系】
 │   │   ├── openpdf_architecture_design.md           # OpenPDF 報表生成整體架構設計
 │   │   ├── custom_openpdf_template_guide.md         # 自定義業務單據範本開發實戰指南 (6 步驟)
-│   │   └── openpdf_anti_orphan_pagination_guide.md  # 動態資料量智慧防孤兒區塊排版技術指南
+│   │   ├── openpdf_anti_orphan_pagination_guide.md  # 動態資料量智慧防孤兒區塊排版技術指南
+│   │   └── openpdf_saas_evolution_roadmap.md        # OpenPDF SaaS 多租戶架構演進與擴充規劃技術手冊
 │   ├── birt/                                        # 【Eclipse BIRT 技術體系】
 │   │   └── birt_pdf_module_operations_guide.md      # Eclipse BIRT 報表架構與維運排障手冊
 │   └── pdfbox/                                      # 【Apache PDFBox 技術體系】
@@ -250,6 +251,7 @@ src/test/java/com/example/demo/
    - 🏛️ [OpenPDF 報表與文件範本生成整體架構設計](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_architecture_design.md)：說明 Clean Architecture 六角分層、五項通用排版積木 (`FontProvider`, `StylePalette`, `CellFactory`, `PageEventHelper`, `OpenPdfWatermarkStyle`)、**浮水印雙軌協同架構 (Dual-Track)** 與 **BOM 報價單專屬尊榮防偽雙線鋼印浮水印**。
    - 🛠️ [自定義業務單據範本開發實戰指南 (6 步驟)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/custom_openpdf_template_guide.md)：提供開發全新單據（出貨單、採購單等）之標準 6-Step 流程、排版積木套用範例與範本專屬浮水印樣式 (`getWatermarkStyle()`) 覆寫。
    - 📐 [動態資料量智慧防孤兒區塊排版技術指南](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_anti_orphan_pagination_guide.md)：解析雙層防孤兒排版機制（結尾複合區塊防拆原子化 + 錨點明細牽引換頁演算法），保證任意資料量絕不出現孤兒簽章頁。
+   - 🚀 [OpenPDF SaaS 多租戶架構演進與擴充規劃技術手冊](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/openpdf/openpdf_saas_evolution_roadmap.md)：詳述六大 SaaS 演進維度（多租戶品牌主題、雲端字型池與雙層快取、宣告式 JSON 排版 DSL、非同步 Worker 佇列、動態 DLP 浮水印與 Cloud KMS 憑證安全、使用量計量與訂閱配額）與 5 階段落地藍圖。
 
 2. **【Eclipse BIRT 體系】視覺化範本驅動報表引擎**
    - 📊 [Eclipse BIRT 報表架構、範本維護與維運排障手冊](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/birt/birt_pdf_module_operations_guide.md)：說明 Spring 單例託管 BIRT 引擎生命週期、`.rptdesign` 報表參數與腳本資料集、容器化字體配置，以及六大常見故障排障 SOP。
