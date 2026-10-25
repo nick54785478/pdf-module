@@ -14,6 +14,7 @@
 - [技術設計與架構文檔導覽](#技術設計與架構文檔導覽)
   - [三大技術體系與專案文檔](#三大技術體系與專案文檔)
 - [命名規範 (9 大類別)](#命名規範-9-大類別)
+- [Apache PDFBox 3.x 安全防護、數位簽章與圖片抽取體系](#apache-pdfbox-3x-安全防護數位簽章與圖片抽取體系)
 - [REST API 端點說明 (報價單生成與解析)](#rest-api-端點說明-報價單生成與解析)
   - [OpenAPI 3.0 與 Swagger UI 互動式文件](#openapi-30-與-swagger-ui-互動式文件)
 - [開發與測試規範](#開發與測試規範)
@@ -35,7 +36,7 @@
 - **OpenAPI / API Docs**：SpringDoc OpenAPI 2.8.5 (Swagger UI 3.0)
 - **PDF / Security Libraries**：
   - [OpenPDF](https://github.com/LibrePDF/OpenPDF) 2.0.4 (PDF 生成、蓋印浮水印、128-bit 權限加密、密碼驗證解鎖、PKCS#7 數位簽署)
-  - [Apache PDFBox](https://pdfbox.apache.org/) 3.0.8 (二進位文字逆向抽取、256-bit AES 最高等級加密、安全限制解除、PKCS#7 增量數位簽署與自定義簽章規範體系)
+  - [Apache PDFBox](https://pdfbox.apache.org/) 3.0.8 (二進位文字逆向抽取、內嵌圖片二進位抽取與 ZIP 封裝、256-bit AES 最高等級加密、安全限制解除、PKCS#7 增量數位簽署與自定義簽章規範體系)
   - [BouncyCastle](https://www.bouncycastle.org/) 1.80 (PKCS#12 金鑰庫解析、X.509 憑證鏈處理與密碼編譯演算法)
   - [Eclipse BIRT Runtime](https://eclipse.dev/birt/) 4.20.0 (視覺化報表設計範本渲染)
 - **Persistence**：Spring Data JPA + H2 Database (in-memory)
@@ -263,6 +264,7 @@ src/test/java/com/example/demo/
    - 🔍 [PDF 結構化文字抽取與狀態機剖析開發指南](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/pdfbox/pdf_parser_development_guide.md)：說明兩階段管線化剖析架構（`PdfExtractorPort` 全文幾何抽取 $\rightarrow$ `QuotationParserPort` 正則狀態機剖析），包含千分位去噪與防禦性容錯。
    - 🛡️ [PDFBox 3.x 256-bit 安全防護、數位簽章與範本自定義規範體系設計文檔](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/pdfbox/pdfbox_security_signature_design.md)：說明全面接納 PDFBox 核心引擎、單據範本感知與個別簽章定義 (`PdfDocumentTemplate` Hook)、平滑降級機制，以及自定義簽章規範體系與視覺印章繪製器。
    - 🔐 [PDF 數位簽章完整流程與憑證密鑰管理實戰指南](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/design/pdfbox/pdf_digital_signature_workflow_and_secret_guide.md)：深入剖析密碼學 ByteRange 挖洞計算原理、CMS/PKCS#7 簽署核心、本機 keytool 自簽產製與企業級 AATL / HSM Secret 管理架構，並提供 Quotation 端到端實例。
+   - 🖼️ **PDFBox 圖片抽取與封裝體系 (`PdfImageExtractorPort` / `PdfBoxImageExtractorAdapter`)**：提供單圖抽取、多頁批次抽取、ZIP 串流壓縮封裝與 Base64 轉換能力，並完整覆蓋 BDD Gherkin 單元測試。
 
 4. **【測試情境與驗證指南】**
    - 🧪 [PDF 數位簽章與安全防護完整測試情境指南 (doc/test/pdf_digital_signature_test_scenarios.md)](file:///d:/桌面/ModuleWorkSpace/pdf-module/doc/test/pdf_digital_signature_test_scenarios.md)：涵蓋 TC-01 ~ TC-09 測試矩陣、Swagger UI 互動式簽章、cURL 腳本自動化、異常邊界防禦與 Adobe Reader 本機信任清單匯入 SOP。
@@ -290,9 +292,9 @@ src/test/java/com/example/demo/
 
 ---
 
-## Apache PDFBox 3.x 安全防護與單據範本自定義簽章規範體系
+## Apache PDFBox 3.x 安全防護、數位簽章與圖片抽取體系
 
-本模組全面接納高度自定義的 **Apache PDFBox 3.x** 作為安全加解密與數位簽章之核心專屬引擎，並結合六角形架構輸出端口 `PdfSecurityExecutorPort`，提供可高度客製化的 **單據範本自定義簽章規範體系 (`PdfSignaturePolicy`)** 與 **視覺印章客製化介面 (`PdfVisualSignatureCustomizer`)**：
+本模組全面接納高度自定義的 **Apache PDFBox 3.x** 作為安全加解密、數位簽章與圖片二進位抽取之核心專屬引擎，並結合六角形架構輸出端口 `PdfSecurityExecutorPort` 與 `PdfImageExtractorPort`，提供可高度客製化的 **單據範本自定義簽章規範體系 (`PdfSignaturePolicy`)**、**視覺印章客製化介面 (`PdfVisualSignatureCustomizer`)** 與 **圖片二進位串流抽取封裝機制**：
 
 ### 1. 核心安全引擎特色 (Apache PDFBox 3.x)
 - **256-bit AES 最高等級安全加密**：支援軍規級 AES-256 對稱加密演算法與細粒度 8 項操作權限控管（列印、文字複製、表單填寫、組裝等）。
@@ -312,6 +314,13 @@ src/test/java/com/example/demo/
   pdf.font.system-fallback-path=C:/Windows/Fonts/msjh.ttc
   ```
 - 基礎設施層（`OpenPdfFontProvider`、`DefaultPdfBoxVisualSignatureCustomizer`、`BomQuotationVisualSignatureCustomizer`）透過依賴注入取得字型配置，並實現多層階層式容錯載入，嚴格保證領域層與應用層 100% 純淨無技術污染。
+
+### 4. PDF 圖片二進位抽取與 ZIP 封裝體系 (PdfImageExtractorPort & PdfBoxImageExtractorAdapter)
+本模組基於 Apache PDFBox 3.x 提供高相容性的 PDF 內嵌圖片抽取能力，支援多種抽取粒度與編碼格式，嚴格遵循六角形架構的純 Java 端口設計：
+- **六角形架構無框架污染**：輸出端口 `PdfImageExtractorPort` 嚴禁接發 Spring `InputStreamResource` 或 `MultipartFile` 等環境相依物件，傳參與回傳全數以純 Java 原生型別 (`byte[]`, `InputStream`) 與應用層 DTO `PdfImageGottenResult` 封裝。
+- **單一圖片即時抽取**：`extractFirstImage(...)` 遍歷 PDF 頁面資源 (`PDResources`) 之 `COSName` XObject，快速檢索第一張圖片二進位資料並解析其原始格式（PNG/JPEG 等）。
+- **多頁批次抽取與 ZIP 串流封裝**：`extractAllImagesAsZip(...)` 自動逐頁掃描全部內嵌圖片，並透過 `ZipOutputStream` 於記憶體中封裝為標準 ZIP 壓縮檔 (`image_001_p1_name.png`)，極適合批次文件附件歸檔與前導圖片預覽。
+- **Base64 編碼整合**：針對 Web / 前端非同步傳輸場景，提供 `extractFirstImageAsBase64(...)` 與 `extractAllImagesAsZipBase64(...)`，可直接作為 Data URI 或 JSON 欄位使用。
 
 ---
 
